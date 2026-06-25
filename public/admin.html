@@ -46,6 +46,15 @@
   .login .card{padding:28px}
   .empty{padding:40px;text-align:center;color:var(--muted)}
   .item-no{font-weight:700;color:var(--brand);background:var(--brand-soft);padding:1px 8px;border-radius:7px;font-size:12.5px}
+  .mrow{border-bottom:1px solid var(--line)}.mrow:last-child{border-bottom:0}
+  .mhead{padding:10px 4px;cursor:pointer;display:flex;gap:8px;align-items:flex-start;font-size:14px}
+  .mhead:hover{background:#f8fafc}
+  .mhead .mtitle{flex:1;min-width:0}
+  .mhead .mcounts{flex:0 0 auto;white-space:nowrap}
+  .mhead .mcaret{flex:0 0 auto;color:var(--muted);transition:transform .15s}
+  .mrow.open .mcaret{transform:rotate(90deg)}
+  .mdetail{padding:2px 0 12px 30px}
+  .mdetail .ci{padding:7px 0;border-top:1px dashed var(--line);font-size:13.5px}
   a.file{font-size:12.5px;margin-right:8px}
   @media(max-width:720px){.cards{grid-template-columns:repeat(2,1fr)}}
 </style>
@@ -247,7 +256,7 @@ function sectionNodes(s){
   return [{no:s.no,text:s.title}];
 }
 function viewMeasure(rows,st){
-  let h='';
+  window._md=[]; let h='';
   (PLAN.sections||[]).forEach(s=>{
     let block='';
     sectionNodes(s).forEach(nd=>{
@@ -255,13 +264,23 @@ function viewMeasure(rows,st){
       rows.forEach(r=>{const c=(r.comments||{})[nd.no];if(c&&c.stance&&(!st||c.stance===st)&&(c.stance!=='agree'||(c.text||'').trim()))hits.push({r,c});});
       const agrees=rows.filter(r=>{const c=(r.comments||{})[nd.no];return c&&c.stance==='agree';}).length;
       if(!hits.length && !(!st&&agrees))return;
-      block+=`<div class="c"><span class="item-no">${esc(nd.no)}</span> ${esc(nd.text)}
-        <div class="mtext" style="margin:4px 0">${(!st&&agrees)?`<span class="pill p-agree">เห็นด้วย ${agrees}</span>`:''}</div>
-        ${hits.map(({r,c})=>`<div style="margin-top:6px"><span class="pill p-${c.stance}">${STANCE_TH[c.stance]}</span> <b>${esc(r.agencyName)}</b>${r.province?` (${esc(r.province)})`:''}: ${esc(c.text||'')}</div>`).join('')}</div>`;
+      const i=window._md.length; window._md.push(hits);
+      const counts=`${(!st&&agrees)?`<span class="pill p-agree">เห็นด้วย ${agrees}</span>`:''}${hits.length?`<span class="pill p-edit">ขอแก้ไข/เพิ่มเติม ${hits.length}</span>`:''}`;
+      block+=`<div class="mrow" id="mr${i}"><div class="mhead" onclick="toggleM(${i})">
+        <span class="mtitle"><span class="item-no">${esc(nd.no)}</span> ${esc(nd.text)}</span>
+        <span class="mcounts">${counts}</span>${hits.length?'<span class="mcaret">▸</span>':'<span style="width:14px"></span>'}</div>
+        <div class="mdetail hidden" id="m${i}"></div></div>`;
     });
-    if(block)h+=`<div class="card"><table><thead><tr><th>${esc(s.no+' '+s.title)}</th></tr></thead></table><div style="padding:6px 14px">${block}</div></div>`;
+    if(block)h+=`<div class="card"><table><thead><tr><th>${esc(s.no+' '+s.title)}</th></tr></thead></table><div style="padding:2px 14px">${block}</div></div>`;
   });
   $('#view').innerHTML=h||'<div class="card"><div class="empty">ยังไม่มีความเห็นรายหัวข้อ</div></div>';
+}
+function toggleM(i){
+  const hits=window._md[i]; if(!hits||!hits.length)return;
+  const d=$('#m'+i); $('#mr'+i).classList.toggle('open'); d.classList.toggle('hidden');
+  if(d.dataset.done)return;
+  d.innerHTML=hits.map(({r,c})=>`<div class="ci"><span class="pill p-${c.stance}">${STANCE_TH[c.stance]}</span> <b>${esc(r.agencyName)}</b>${r.province?` <span class="mtext">(${esc(r.province)}${r.unitType?' · '+esc(r.unitType):''})</span>`:''}: ${esc(c.text||'')}</div>`).join('');
+  d.dataset.done=1;
 }
 
 function viewMissing(){
