@@ -227,7 +227,7 @@ const $=s=>document.querySelector(s);
 const api=(u,o)=>fetch(u,o).then(r=>r.ok?r.json():r.json().then(e=>Promise.reject(e)));
 let PLAN=null,AG=null,AIDX=new Map(),NODES=[];
 let state={agencyId:'',meta:null,submitter:'',position:'',phone:'',email:'',comments:{},otherComment:''};
-const STANCE=[['agree','เห็นด้วย'],['edit','ขอแก้ไข'],['add','ขอเพิ่มเติม']];
+const STANCE=[['agree','เห็นด้วย'],['edit','ขอแก้ไข/เพิ่มเติม']];
 const lsKey=id=>'fr2570:'+id;
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1700);}
@@ -320,7 +320,7 @@ function commentBox(id,onChange){
     <div class="reveal hidden"><textarea placeholder="โปรดระบุข้อเสนอ / ประเด็นที่ขอแก้ไขหรือเพิ่มเติม"></textarea></div>`;
   const reveal=box.querySelector('.reveal'),ta=box.querySelector('textarea');
   ta.value=c.text||'';
-  const sync=()=>{const cc=getC(id);reveal.classList.toggle('hidden',!(cc.stance==='edit'||cc.stance==='add'||(cc.text||'').trim()));};
+  const sync=()=>{const cc=getC(id);reveal.classList.toggle('hidden',!(cc.stance==='edit'||(cc.text||'').trim()));};
   box.querySelectorAll('.stance').forEach(btn=>{
     if(btn.dataset.v===c.stance)btn.classList.add('sel');
     btn.onclick=()=>{const cc=getC(id);cc.stance=cc.stance===btn.dataset.v?'':btn.dataset.v;box.querySelectorAll('.stance').forEach(b=>b.classList.toggle('sel',b.dataset.v===cc.stance));sync();persist();onChange&&onChange();};

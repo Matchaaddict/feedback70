@@ -148,7 +148,7 @@ app.get('/api/admin/stats', requireAdmin, async (_req, res) => {
   });
 });
 
-const STANCE_TH = { agree: 'เห็นด้วย', edit: 'ขอแก้ไข', add: 'ขอเพิ่มเติม' };
+const STANCE_TH = { agree: 'เห็นด้วย', edit: 'ขอแก้ไข/เพิ่มเติม', add: 'ขอแก้ไข/เพิ่มเติม' };
 
 // flatten plan.json -> { nodeId: {dim, text} } for every commentable node
 function flattenPlan(plan) {

@@ -89,7 +89,7 @@
     <input class="grow" id="q" placeholder="ค้นหา หน่วยงาน / จังหวัด / ข้อความ…" oninput="render()" />
     <select id="fStance" onchange="render()">
       <option value="">ความเห็นทุกแบบ</option>
-      <option value="agree">เห็นด้วย</option><option value="edit">ขอแก้ไข</option><option value="add">ขอเพิ่มเติม</option>
+      <option value="agree">เห็นด้วย</option><option value="edit">ขอแก้ไข/เพิ่มเติม</option>
     </select>
     <select id="fKind" onchange="render()">
       <option value="">ทุกประเภท</option>
@@ -108,7 +108,7 @@
 let TOKEN=localStorage.getItem('fr2570:tok')||'';
 let RESP=[], PLAN=null, AG=null, MIDX={}, TAB='byAgency';
 const $=s=>document.querySelector(s);
-const STANCE_TH={agree:'เห็นด้วย',edit:'ขอแก้ไข',add:'ขอเพิ่มเติม'};
+const STANCE_TH={agree:'เห็นด้วย',edit:'ขอแก้ไข/เพิ่มเติม',add:'ขอแก้ไข/เพิ่มเติม'};
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
 async function aget(u){const r=await fetch(u,{headers:{'x-admin-token':TOKEN}});if(r.status===401)throw'unauth';return r.json();}
