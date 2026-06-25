@@ -4,23 +4,16 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SEED_DIR = path.join(__dirname, 'data');           // seed files ที่มากับโค้ด
-const DATA = process.env.DATA_DIR || SEED_DIR;            // บน Railway ชี้ไป mount path ของ volume เช่น /data
-const PLAN_FILE = path.join(DATA, 'plan.json');
-const AGENCIES_FILE = path.join(DATA, 'agencies.json');
+const SEED_DIR = path.join(__dirname, 'data');           // ไฟล์ที่มากับโค้ด (repo)
+const DATA = process.env.DATA_DIR || SEED_DIR;           // volume สำหรับเก็บคำตอบ (เช่น /data บน Railway)
+
+// เนื้อหา (ร่างแผน + หน่วยงาน) อ่านจาก repo เสมอ -> แก้แล้ว push = อัปเดตทุก deploy
+const PLAN_FILE = path.join(SEED_DIR, 'plan.json');
+const AGENCIES_FILE = path.join(SEED_DIR, 'agencies.json');
+// คำตอบของผู้กรอก -> เก็บบน volume ให้ถาวร ไม่หายตอน redeploy
 const RESPONSES_FILE = path.join(DATA, 'responses.json');
 
 await fs.mkdir(DATA, { recursive: true });
-
-// ครั้งแรกที่ volume ยังว่าง -> คัดลอก seed (plan/agencies) จากโค้ดไปลง volume
-// responses.json ไม่ copy (ให้เริ่มว่างบน production)
-if (DATA !== SEED_DIR) {
-  for (const f of ['plan.json', 'agencies.json']) {
-    const dest = path.join(DATA, f);
-    try { await fs.access(dest); }
-    catch { await fs.copyFile(path.join(SEED_DIR, f), dest).catch(() => {}); }
-  }
-}
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'changeme-local';
 const PORT = process.env.PORT || 3200;
