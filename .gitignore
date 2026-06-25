@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+
+# ข้อมูลคำตอบ — มีข้อมูลส่วนบุคคล (ชื่อ/เบอร์/อีเมล) ห้ามขึ้น git
+data/responses.json
+data/responses.*.json
+
+# secrets / env
+.env
+.env.*
+
+# logs / temp
+*.log
+*.out
+*.err
+srv.*
+npm-debug.log*
+.DS_Store
+Thumbs.db

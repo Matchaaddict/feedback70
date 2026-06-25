@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>แอดมิน · ระบบแสดงความคิดเห็นเพื่อทบทวนแผนบูรณาการฯ พ.ศ. 2570</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#eef2f7;--card:#fff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--brand:#1d4ed8;--brand-soft:#eff4ff;
+    --agree:#16a34a;--agree-bg:#ecfdf3;--edit:#d97706;--edit-bg:#fffbeb;--add:#2563eb;--add-bg:#eff6ff;
+    --shadow:0 1px 3px rgba(15,23,42,.08),0 8px 24px -14px rgba(15,23,42,.2)}
+  *{box-sizing:border-box}body{margin:0;font-family:'Sarabun',system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+  .wrap{max-width:1180px;margin:0 auto;padding:18px 16px 80px}
+  .hidden{display:none!important}
+  h1{font-size:19px;margin:0}
+  .top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .brand-dot{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--brand),#3b82f6);display:grid;place-items:center;color:#fff;font-weight:700}
+  .btn{border:0;border-radius:11px;padding:10px 16px;font:inherit;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:7px}
+  .btn.primary{background:var(--brand);color:#fff}.btn.ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
+  input,select{padding:9px 11px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+  .stat .n{font-size:26px;font-weight:700}.stat .l{font-size:13px;color:var(--muted);font-weight:600}
+  .stat .bar{height:6px;border-radius:99px;background:var(--line);margin-top:10px;overflow:hidden}
+  .stat .bar>div{height:100%;background:var(--agree)}
+  .tabs{display:flex;gap:8px;margin-bottom:14px}
+  .tab{padding:9px 16px;border-radius:10px;font-weight:700;cursor:pointer;background:#fff;border:1px solid var(--line);color:var(--muted)}
+  .tab.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+  .toolbar .grow{flex:1;min-width:160px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:12px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#f8fafc;font-size:12.5px;color:var(--muted);font-weight:700;position:sticky;top:0}
+  tr.resp{cursor:pointer}tr.resp:hover{background:#f8fafc}
+  .badge{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:700}
+  .b-sub{background:var(--agree-bg);color:var(--agree)}.b-draft{background:var(--edit-bg);color:var(--edit)}
+  .pill{display:inline-block;padding:1px 8px;border-radius:7px;font-size:11.5px;font-weight:700;margin-right:3px}
+  .p-agree{background:var(--agree-bg);color:var(--agree)}.p-edit{background:var(--edit-bg);color:var(--edit)}.p-add{background:var(--add-bg);color:var(--add)}
+  .detail{background:#f8fafc;padding:0 14px}
+  .detail .c{padding:11px 0;border-bottom:1px dashed var(--line)}
+  .detail .c:last-child{border-bottom:0}
+  .mtext{color:var(--muted);font-size:13px}
+  .login{max-width:380px;margin:80px auto;text-align:center}
+  .login .card{padding:28px}
+  .empty{padding:40px;text-align:center;color:var(--muted)}
+  .item-no{font-weight:700;color:var(--brand);background:var(--brand-soft);padding:1px 8px;border-radius:7px;font-size:12.5px}
+  a.file{font-size:12.5px;margin-right:8px}
+  @media(max-width:720px){.cards{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<!-- login -->
+<div class="login" id="login">
+  <div class="card">
+    <div class="brand-dot" style="margin:0 auto 14px">ศปถ</div>
+    <h1 style="margin-bottom:6px">หน้าแอดมิน</h1>
+    <p style="color:var(--muted);margin-top:0">ระบบแสดงความคิดเห็นเพื่อทบทวนแผนบูรณาการฯ ช่วงเทศกาล และช่วงวันหยุด พ.ศ. 2570</p>
+    <input id="tok" type="password" placeholder="Admin token" style="width:100%;margin:10px 0" />
+    <button class="btn primary" style="width:100%" onclick="login()">เข้าสู่ระบบ</button>
+    <p id="loginErr" style="color:#dc2626;font-size:13px"></p>
+  </div>
+</div>
+
+<div class="wrap hidden" id="app">
+  <div class="top">
+    <div class="brand-dot">ศปถ</div>
+    <div><h1>ระบบแสดงความคิดเห็นเพื่อทบทวนแผนบูรณาการฯ ช่วงเทศกาล และช่วงวันหยุด พ.ศ. 2570</h1>
+    <div style="font-size:13px;color:var(--muted)">หน่วยงานภาคี ศปถ. · มาตรการ 5 ด้าน</div></div>
+    <div style="margin-left:auto;display:flex;gap:8px">
+      <a class="btn primary" id="xlsBtn">⬇ ดาวน์โหลด Excel (.xls)</a>
+      <a class="btn ghost" id="csvBtn">⬇ CSV (UTF-8)</a>
+      <button class="btn ghost" onclick="logout()">ออก</button>
+    </div>
+  </div>
+
+  <div class="cards" id="stats"></div>
+
+  <div class="tabs">
+    <div class="tab on" data-tab="byAgency" onclick="setTab('byAgency')">รายหน่วยงาน</div>
+    <div class="tab" data-tab="byMeasure" onclick="setTab('byMeasure')">รายหัวข้อ/มาตรการ</div>
+    <div class="tab" data-tab="missing" onclick="setTab('missing')">ยังไม่ตอบ</div>
+    <div class="tab" data-tab="agencies" onclick="setTab('agencies')">จัดการหน่วยงาน</div>
+  </div>
+
+  <div class="toolbar">
+    <input class="grow" id="q" placeholder="ค้นหา หน่วยงาน / จังหวัด / ข้อความ…" oninput="render()" />
+    <select id="fStance" onchange="render()">
+      <option value="">ความเห็นทุกแบบ</option>
+      <option value="agree">เห็นด้วย</option><option value="edit">ขอแก้ไข</option><option value="add">ขอเพิ่มเติม</option>
+    </select>
+    <select id="fKind" onchange="render()">
+      <option value="">ทุกประเภท</option>
+      <option value="central">ส่วนกลาง</option><option value="province">จังหวัด</option>
+    </select>
+    <select id="fStatus" onchange="render()">
+      <option value="">ทุกสถานะ</option>
+      <option value="submitted">ส่งแล้ว</option><option value="draft">ร่าง</option>
+    </select>
+  </div>
+
+  <div id="view"></div>
+</div>
+
+<script>
+let TOKEN=localStorage.getItem('fr2570:tok')||'';
+let RESP=[], PLAN=null, AG=null, MIDX={}, TAB='byAgency';
+const $=s=>document.querySelector(s);
+const STANCE_TH={agree:'เห็นด้วย',edit:'ขอแก้ไข',add:'ขอเพิ่มเติม'};
+const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+async function aget(u){const r=await fetch(u,{headers:{'x-admin-token':TOKEN}});if(r.status===401)throw'unauth';return r.json();}
+async function asend(method,u,body){const r=await fetch(u,{method,headers:{'x-admin-token':TOKEN,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});const j=await r.json().catch(()=>({}));if(!r.ok)throw(j.error||'error');return j;}
+async function reloadAG(){AG=await fetch('/api/agencies').then(r=>r.json());buildMidx();}
+const escA=s=>esc(s).replace(/"/g,'&quot;');
+
+async function login(){
+  TOKEN=$('#tok').value.trim();
+  try{ await aget('/api/admin/stats'); localStorage.setItem('fr2570:tok',TOKEN); boot(); }
+  catch(e){ $('#loginErr').textContent='token ไม่ถูกต้อง'; }
+}
+function logout(){localStorage.removeItem('fr2570:tok');location.reload();}
+
+async function boot(){
+  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
+  $('#xlsBtn').href='/api/admin/export.xls?token='+encodeURIComponent(TOKEN);
+  $('#csvBtn').href='/api/admin/export.csv?token='+encodeURIComponent(TOKEN);
+  [PLAN,AG,RESP]=await Promise.all([fetch('/api/plan').then(r=>r.json()),fetch('/api/agencies').then(r=>r.json()),aget('/api/admin/responses')]);
+  buildMidx();
+  renderStats(); render();
+}
+function buildMidx(){
+  MIDX={};
+  (PLAN.sections||[]).forEach(s=>{
+    if(s.commentLevel==='item') s.groups.forEach(g=>g.items.forEach(it=>MIDX[it.no]={dim:s.title+' / '+g.title,text:it.text}));
+    else if(s.commentLevel==='group') s.groups.forEach(g=>MIDX[g.no]={dim:s.title,text:g.title});
+    else MIDX[s.no]={dim:s.title,text:s.title};
+  });
+}
+
+async function renderStats(){
+  const s=await aget('/api/admin/stats');
+  const pct=s.centralTotal?Math.round(s.centralSubmitted/s.centralTotal*100):0;
+  $('#stats').innerHTML=[
+    ['ส่วนกลาง ส่งแล้ว',`${s.centralSubmitted}/${s.centralTotal}`,`<div class="bar"><div style="width:${pct}%"></div></div>`],
+    ['จังหวัด ส่งแล้ว',s.provinceSubmitted,'หน่วยงาน (พิมพ์ชื่อเอง)'],
+    ['ส่งแล้วรวม',s.submitted,''],
+    ['ร่าง (ยังไม่ส่ง)',s.drafts,''],
+  ].map(([l,n,x])=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div>${x||''}</div>`).join('');
+}
+
+function setTab(t){TAB=t;document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('on',e.dataset.tab===t));render();}
+
+function commentsOf(r){return Object.entries(r.comments||{}).filter(([,c])=>c&&(c.stance||(c.text||'').trim()));}
+function matchStance(r,st){if(!st)return true;return commentsOf(r).some(([,c])=>c.stance===st);}
+
+function render(){
+  const q=$('#q').value.trim(), st=$('#fStance').value, kind=$('#fKind').value, status=$('#fStatus').value;
+  let rows=RESP.filter(r=>(!kind||r.kind===kind)&&(!status||r.status===status)&&matchStance(r,st));
+  if(q){const qq=q.toLowerCase();rows=rows.filter(r=>(r.agencyName+r.province+r.submitter+JSON.stringify(r.comments)).toLowerCase().includes(qq));}
+  if(TAB==='byAgency')viewAgency(rows,st);
+  else if(TAB==='byMeasure')viewMeasure(rows,st);
+  else if(TAB==='agencies')viewAgencies();
+  else viewMissing();
+}
+
+function viewAgencies(){
+  const q=$('#q').value.trim().toLowerCase();
+  let central=(AG.central||[]);
+  if(q)central=central.filter(a=>a.name.toLowerCase().includes(q));
+  let h=`<div class="card">
+    <div style="padding:12px 14px;display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--line)">
+      <input id="newName" placeholder="ชื่อหน่วยงานส่วนกลางใหม่…" style="flex:1">
+      <button class="btn primary" onclick="addCentral()">+ เพิ่ม</button>
+    </div>
+    <table><thead><tr><th>หน่วยงานส่วนกลาง (${central.length})</th><th>คณะอนุฯ</th><th></th></tr></thead><tbody>`;
+  central.forEach(a=>{
+    h+=`<tr><td><input id="ag_${a.id}" value="${escA(a.name)}" style="width:100%"></td>
+      <td class="mtext" style="white-space:nowrap">${(a.committees||[]).join(' ')||'—'}</td>
+      <td style="white-space:nowrap;text-align:right"><button class="btn ghost" onclick="saveAg('${a.id}')">บันทึก</button>
+      <button class="btn ghost" style="color:#dc2626" onclick="delAg('${a.id}')">ลบ</button></td></tr>`;
+  });
+  h+=`</tbody></table></div>
+    <div class="card"><div style="padding:14px">
+      <b>หน่วยงานระดับจังหวัด</b>
+      <p class="mtext" style="margin:6px 0 0">ไม่ได้กำหนดรายชื่อตายตัว — ผู้กรอกเลือกจังหวัด + ประเภท (${(AG.provinceCategories||[]).join(' / ')}) แล้วพิมพ์ชื่อหน่วยงานเอง (${(AG.provinces||[]).length} จังหวัด)</p>
+    </div></div>`;
+  $('#view').innerHTML=h;
+}
+function findAg(id){return (AG.central||[]).find(a=>a.id===id)||null;}
+async function saveAg(id){
+  const name=$('#ag_'+id).value.trim();
+  if(!name)return toast('กรอกชื่อก่อน');
+  try{await asend('PUT','/api/admin/agency/'+id,{name});const a=findAg(id);if(a)a.name=name;buildMidx();toast('บันทึกชื่อแล้ว');}catch(e){toast('ผิดพลาด: '+e);}
+}
+async function addCentral(){
+  const name=$('#newName').value.trim();
+  if(!name)return toast('กรอกชื่อก่อน');
+  try{await asend('POST','/api/admin/agency',{name});await reloadAG();viewAgencies();toast('เพิ่มหน่วยงานแล้ว');}catch(e){toast('ผิดพลาด: '+e);}
+}
+async function delAg(id){
+  const a=findAg(id);
+  if(!confirm('ลบหน่วยงาน “'+(a?a.name:id)+'” ?'))return;
+  try{await asend('DELETE','/api/admin/agency/'+id);await reloadAG();viewAgencies();toast('ลบแล้ว');}catch(e){toast('ผิดพลาด: '+e);}
+}
+
+function stancePills(r){
+  const c={agree:0,edit:0,add:0};commentsOf(r).forEach(([,x])=>{if(x.stance)c[x.stance]++;});
+  return Object.entries(c).filter(([,n])=>n).map(([k,n])=>`<span class="pill p-${k}">${STANCE_TH[k]} ${n}</span>`).join('')||'<span class="mtext">—</span>';
+}
+
+function viewAgency(rows,st){
+  if(!rows.length)return $('#view').innerHTML='<div class="card"><div class="empty">ยังไม่มีข้อมูล</div></div>';
+  let h='<div class="card"><table><thead><tr><th>หน่วยงาน</th><th>ประเภท</th><th>ผู้กรอก</th><th>ความเห็น</th><th>สถานะ</th><th>ส่งเมื่อ</th></tr></thead><tbody>';
+  rows.forEach((r,i)=>{
+    const typ=r.kind==='province'?`จังหวัด${r.province} · ${r.unitType}`:'ส่วนกลาง'+((r.committees||[]).length?' · '+r.committees.join(','):'');
+    h+=`<tr class="resp" onclick="toggle(${i})"><td><b>${esc(r.agencyName)}</b></td><td class="mtext">${esc(typ)}</td>
+        <td>${esc(r.submitter||'')}${r.position?` <span class="mtext">(${esc(r.position)})</span>`:''}${(r.phone||r.email)?`<div class="mtext">${esc([r.phone,r.email].filter(Boolean).join(' · '))}</div>`:''}</td>
+        <td>${stancePills(r)}</td>
+        <td><span class="badge ${r.status==='submitted'?'b-sub':'b-draft'}">${r.status==='submitted'?'ส่งแล้ว':'ร่าง'}</span></td>
+        <td class="mtext">${fmt(r.submittedAt)}</td></tr>
+        <tr class="detail hidden" id="d${i}"><td colspan="6"></td></tr>`;
+  });
+  h+='</tbody></table></div>';
+  $('#view').innerHTML=h;
+  window._rows=rows;window._st=st;
+}
+function toggle(i){
+  const tr=$('#d'+i);tr.classList.toggle('hidden');
+  if(tr.dataset.done)return;
+  const r=window._rows[i];const td=tr.querySelector('td');
+  const cs=commentsOf(r).filter(([,c])=>!window._st||c.stance===window._st);
+  td.innerHTML='<div class="detail">'+(cs.length?cs.map(([no,c])=>`
+     <div class="c"><span class="item-no">${no}</span> <span class="mtext">${esc((MIDX[no]||{}).text||'')}</span>
+     <div style="margin-top:5px"><span class="pill p-${c.stance||'agree'}">${STANCE_TH[c.stance]||'—'}</span> ${esc(c.text||'')}</div>
+     </div>`).join(''):'<div class="empty">เห็นชอบทั้งฉบับ (ไม่มีความเห็นรายข้อ)</div>')+'</div>';
+  tr.dataset.done=1;
+}
+
+function sectionNodes(s){
+  if(s.commentLevel==='item')return s.groups.flatMap(g=>g.items.map(it=>({no:it.no,text:it.text,group:g.title})));
+  if(s.commentLevel==='group')return s.groups.map(g=>({no:g.no,text:g.title}));
+  return [{no:s.no,text:s.title}];
+}
+function viewMeasure(rows,st){
+  let h='';
+  (PLAN.sections||[]).forEach(s=>{
+    let block='';
+    sectionNodes(s).forEach(nd=>{
+      const hits=[];
+      rows.forEach(r=>{const c=(r.comments||{})[nd.no];if(c&&c.stance&&(!st||c.stance===st)&&(c.stance!=='agree'||(c.text||'').trim()))hits.push({r,c});});
+      const agrees=rows.filter(r=>{const c=(r.comments||{})[nd.no];return c&&c.stance==='agree';}).length;
+      if(!hits.length && !(!st&&agrees))return;
+      block+=`<div class="c"><span class="item-no">${esc(nd.no)}</span> ${esc(nd.text)}
+        <div class="mtext" style="margin:4px 0">${(!st&&agrees)?`<span class="pill p-agree">เห็นด้วย ${agrees}</span>`:''}</div>
+        ${hits.map(({r,c})=>`<div style="margin-top:6px"><span class="pill p-${c.stance}">${STANCE_TH[c.stance]}</span> <b>${esc(r.agencyName)}</b>${r.province?` (${esc(r.province)})`:''}: ${esc(c.text||'')}</div>`).join('')}</div>`;
+    });
+    if(block)h+=`<div class="card"><table><thead><tr><th>${esc(s.no+' '+s.title)}</th></tr></thead></table><div style="padding:6px 14px">${block}</div></div>`;
+  });
+  $('#view').innerHTML=h||'<div class="card"><div class="empty">ยังไม่มีความเห็นรายหัวข้อ</div></div>';
+}
+
+function viewMissing(){
+  const sub=RESP.filter(r=>r.status==='submitted');
+  // central not submitted
+  const doneC=new Set(sub.filter(r=>r.kind==='central').map(r=>r.agencyId));
+  const missC=(AG.central||[]).filter(a=>!doneC.has(a.id));
+  // province × category combos with no submission yet
+  const cats=AG.provinceCategories||[];
+  const haveSet=new Set(sub.filter(r=>r.kind==='province').map(r=>r.province+'|'+r.unitType));
+  const missP=[];
+  (AG.provinces||[]).forEach(p=>cats.forEach(c=>{if(!haveSet.has(p+'|'+c))missP.push({province:p,cat:c});}));
+  let h=`<div class="card"><table><thead><tr><th>หน่วยงานส่วนกลางที่ยังไม่ส่ง (${missC.length})</th><th>คณะอนุฯ</th></tr></thead><tbody>`;
+  h+=(missC.length?missC.map(a=>`<tr><td>${esc(a.name)}</td><td class="mtext">${(a.committees||[]).join(' ')}</td></tr>`).join(''):'<tr><td colspan="2" class="mtext">ส่งครบทุกหน่วยแล้ว</td></tr>');
+  h+=`</tbody></table></div>
+    <div class="card"><table><thead><tr><th>จังหวัด × ประเภท ที่ยังไม่มีหน่วยงานส่ง (${missP.length})</th></tr></thead><tbody>`;
+  h+=(missP.length?missP.map(m=>`<tr><td>${esc(m.province)} · <span class="mtext">${esc(m.cat)}</span></td></tr>`).join(''):'<tr><td class="mtext">มีหน่วยงานส่งครบทุกจังหวัด×ประเภทแล้ว</td></tr>');
+  h+='</tbody></table></div>';
+  $('#view').innerHTML=h;
+}
+
+function fmt(iso){if(!iso)return'';const d=new Date(iso);return d.toLocaleString('th-TH',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}
+
+if(TOKEN)boot().catch(()=>{$('#login').classList.remove('hidden');$('#app').classList.add('hidden');});
+</script>
+</body>
+</html>
