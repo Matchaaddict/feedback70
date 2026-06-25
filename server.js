@@ -111,6 +111,7 @@ async function saveResponse(req, res, status) {
     phone: (body.phone || '').trim(),
     email: (body.email || '').trim(),
     comments: body.comments || {},          // { "8.1.1": {stance,text,files:[]} }
+    otherComment: (body.otherComment || '').trim(),
     status,
     createdAt: prev.createdAt || now,
     updatedAt: now,
@@ -176,7 +177,7 @@ function csvEscape(v) {
 function buildExportRows(plan, all) {
   const mIndex = flattenPlan(plan); // nodeId -> {dim, text}
   const rows = [['หน่วยงาน', 'ประเภท', 'จังหวัด', 'อนุกรรมการ', 'ผู้กรอก', 'ตำแหน่ง', 'เบอร์โทร', 'อีเมล',
-    'หัวข้อ/ด้าน', 'ข้อ', 'เนื้อหา', 'ความเห็น', 'ข้อเสนอแก้ไข/เพิ่มเติม', 'สถานะ', 'เวลาส่ง']];
+    'หัวข้อ/ด้าน', 'ข้อ', 'เนื้อหา', 'ความเห็น', 'ข้อเสนอแก้ไข/เพิ่มเติม', 'ความเห็นอื่น ๆ (ภาพรวม)', 'สถานะ', 'เวลาส่ง']];
   const typeOf = r => r.kind === 'province' ? `จังหวัด-${r.unitType}` : 'ส่วนกลาง';
   const statusOf = r => r.status === 'submitted' ? 'ส่งแล้ว' : 'ร่าง';
   for (const r of all) {
@@ -187,7 +188,7 @@ function buildExportRows(plan, all) {
       rows.push([r.agencyName, typeOf(r), r.province || '', (r.committees || []).join(' '),
         r.submitter || '', r.position || '', r.phone || '', r.email || '',
         '', '', '', r.status === 'submitted' ? 'เห็นชอบทั้งฉบับ' : '', '',
-        statusOf(r), r.submittedAt || '']);
+        r.otherComment || '', statusOf(r), r.submittedAt || '']);
       continue;
     }
     for (const [no, c] of noted) {
@@ -195,7 +196,7 @@ function buildExportRows(plan, all) {
       rows.push([r.agencyName, typeOf(r), r.province || '', (r.committees || []).join(' '),
         r.submitter || '', r.position || '', r.phone || '', r.email || '',
         m.dim, no, m.text, STANCE_TH[c.stance] || (c.stance || ''), c.text || '',
-        statusOf(r), r.submittedAt || '']);
+        r.otherComment || '', statusOf(r), r.submittedAt || '']);
     }
   }
   return rows;

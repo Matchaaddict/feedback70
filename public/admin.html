@@ -232,10 +232,12 @@ function toggle(i){
   if(tr.dataset.done)return;
   const r=window._rows[i];const td=tr.querySelector('td');
   const cs=commentsOf(r).filter(([,c])=>!window._st||c.stance===window._st);
+  const oc=(r.otherComment||'').trim();
   td.innerHTML='<div class="detail">'+(cs.length?cs.map(([no,c])=>`
      <div class="c"><span class="item-no">${no}</span> <span class="mtext">${esc((MIDX[no]||{}).text||'')}</span>
      <div style="margin-top:5px"><span class="pill p-${c.stance||'agree'}">${STANCE_TH[c.stance]||'—'}</span> ${esc(c.text||'')}</div>
-     </div>`).join(''):'<div class="empty">เห็นชอบทั้งฉบับ (ไม่มีความเห็นรายข้อ)</div>')+'</div>';
+     </div>`).join(''):'<div class="empty">เห็นชอบทั้งฉบับ (ไม่มีความเห็นรายข้อ)</div>')
+     +(oc?`<div class="c" style="border-top:1px dashed var(--line);margin-top:8px;padding-top:8px"><b>ความเห็นอื่น ๆ (ภาพรวม):</b> ${esc(oc)}</div>`:'')+'</div>';
   tr.dataset.done=1;
 }
 

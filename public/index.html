@@ -193,6 +193,11 @@
       <button class="btn ghost" id="changeBtn">เปลี่ยนหน่วยงาน</button>
     </div>
     <div id="secs"></div>
+    <div class="card card-pad" id="otherWrap">
+      <span class="label">ความเห็น / ข้อเสนอแนะอื่น ๆ (ภาพรวม)</span>
+      <div class="hint" style="margin:2px 0 8px">นอกเหนือจากความเห็นรายมาตรการข้างต้น หากมีข้อเสนอแนะในภาพรวมโปรดระบุ (ไม่บังคับ)</div>
+      <textarea id="otherComment" placeholder="ระบุความเห็นหรือข้อเสนอแนะเพิ่มเติมในภาพรวม"></textarea>
+    </div>
   </section>
 
   <!-- STEP 3 -->
@@ -221,7 +226,7 @@
 const $=s=>document.querySelector(s);
 const api=(u,o)=>fetch(u,o).then(r=>r.ok?r.json():r.json().then(e=>Promise.reject(e)));
 let PLAN=null,AG=null,AIDX=new Map(),NODES=[];
-let state={agencyId:'',meta:null,submitter:'',position:'',phone:'',email:'',comments:{}};
+let state={agencyId:'',meta:null,submitter:'',position:'',phone:'',email:'',comments:{},otherComment:''};
 const STANCE=[['agree','เห็นด้วย'],['edit','ขอแก้ไข'],['add','ขอเพิ่มเติม']];
 const lsKey=id=>'fr2570:'+id;
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
@@ -291,10 +296,10 @@ async function start(){
   let meta=AIDX.get(id);
   if(!meta && $('#kindSel').value==='province')
     meta={name:$('#provName').value.trim(),kind:'province',province:$('#provSel').value,unitType:$('#catSel').value,committees:[]};
-  state={agencyId:id,meta,submitter:$('#submitter').value.trim(),position:$('#position').value.trim(),phone:$('#phone').value.trim(),email:$('#email').value.trim(),comments:{}};
+  state={agencyId:id,meta,submitter:$('#submitter').value.trim(),position:$('#position').value.trim(),phone:$('#phone').value.trim(),email:$('#email').value.trim(),comments:{},otherComment:''};
   const local=JSON.parse(localStorage.getItem(lsKey(id))||'null');
-  if(local){state.submitter=local.submitter||state.submitter;state.position=local.position||state.position;state.phone=local.phone||state.phone;state.email=local.email||state.email;state.comments=local.comments||{};}
-  else{try{const srv=await api('/api/response/'+id);if(srv){state.comments=srv.comments||{};state.submitter=srv.submitter||state.submitter;state.position=srv.position||state.position;state.phone=srv.phone||state.phone;state.email=srv.email||state.email;if(srv.status==='submitted')toast('โหลดความเห็นที่เคยส่งไว้');}}catch(e){}}
+  if(local){state.submitter=local.submitter||state.submitter;state.position=local.position||state.position;state.phone=local.phone||state.phone;state.email=local.email||state.email;state.comments=local.comments||{};state.otherComment=local.otherComment||'';}
+  else{try{const srv=await api('/api/response/'+id);if(srv){state.comments=srv.comments||{};state.submitter=srv.submitter||state.submitter;state.position=srv.position||state.position;state.phone=srv.phone||state.phone;state.email=srv.email||state.email;state.otherComment=srv.otherComment||'';if(srv.status==='submitted')toast('โหลดความเห็นที่เคยส่งไว้');}}catch(e){}}
   renderForm();show('step2');
 }
 function show(step){
@@ -331,6 +336,7 @@ function renderForm(){
   $('#formNote').textContent=m.kind==='province'?`จังหวัด${m.province} · ${m.unitType}`:'หน่วยงานส่วนกลาง'+((m.committees||[]).length?` · อยู่ใน ${m.committees.join(', ')}`:'');
   const root=$('#secs');root.innerHTML='';
   (PLAN.sections||[]).forEach(s=>root.appendChild(renderSection(s)));
+  const oc=$('#otherComment');oc.value=state.otherComment||'';oc.oninput=()=>{state.otherComment=oc.value;persist();};
   updateProgress();bindFooter();
 }
 
@@ -411,7 +417,7 @@ function updateProgress(){
   $('#footSummary').innerHTML=`ให้ความเห็นแล้ว <b>${done}</b> / ${total} หัวข้อ/มาตรการ`;
 }
 
-function persist(){localStorage.setItem(lsKey(state.agencyId),JSON.stringify({submitter:state.submitter,position:state.position,phone:state.phone,email:state.email,comments:state.comments}));$('#saveInd').innerHTML='<b>บันทึกร่างแล้ว</b>';}
+function persist(){localStorage.setItem(lsKey(state.agencyId),JSON.stringify({submitter:state.submitter,position:state.position,phone:state.phone,email:state.email,comments:state.comments,otherComment:state.otherComment}));$('#saveInd').innerHTML='<b>บันทึกร่างแล้ว</b>';}
 function bindFooter(){
   $('#changeBtn').onclick=()=>show('step1');
   $('#saveBtn').onclick=()=>send('/api/draft','บันทึกร่างขึ้นระบบแล้ว');
@@ -419,7 +425,7 @@ function bindFooter(){
   $('#editAgainBtn').onclick=()=>show('step2');
   $('#newBtn').onclick=()=>location.reload();
 }
-const payload=()=>({agencyId:state.agencyId,kind:state.meta.kind,province:state.meta.province||'',category:state.meta.unitType||'',agencyName:state.meta.name,submitter:state.submitter,position:state.position,phone:state.phone,email:state.email,comments:state.comments});
+const payload=()=>({agencyId:state.agencyId,kind:state.meta.kind,province:state.meta.province||'',category:state.meta.unitType||'',agencyName:state.meta.name,submitter:state.submitter,position:state.position,phone:state.phone,email:state.email,comments:state.comments,otherComment:state.otherComment});
 async function send(url,msg){try{await api(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload())});toast(msg);return true;}catch(e){toast('เกิดข้อผิดพลาด: '+(e.error||''));return false;}}
 async function submit(){
   const done=doneCount(NODES);
