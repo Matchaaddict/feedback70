@@ -301,8 +301,12 @@ async function start(){
     meta={name:'ผู้ทรงคุณวุฒิ',kind:'expert',province:'',unitType:'',committees:[]};
   state={agencyId:id,meta,email:$('#email').value.trim(),comments:{},otherComment:''};
   const local=JSON.parse(localStorage.getItem(lsKey(id))||'null');
-  if(local){state.email=local.email||state.email;state.comments=local.comments||{};state.otherComment=local.otherComment||'';}
-  else{try{const srv=await api('/api/response/'+id);if(srv){state.comments=srv.comments||{};state.email=srv.email||state.email;state.otherComment=srv.otherComment||'';if(srv.status==='submitted')toast('โหลดความเห็นที่เคยส่งไว้');}}catch(e){}}
+  let srv=null; try{srv=await api('/api/response/'+id);}catch(e){}
+  // เลือกแหล่งที่ใหม่กว่า: server = ร่าง/คำตอบที่ข้ามอุปกรณ์ได้, local = งานในเครื่องที่อาจยังไม่ได้เซฟขึ้น server
+  const useSrv = srv && (!local || !local.savedAt || (srv.updatedAt||'') >= local.savedAt);
+  const d = useSrv ? srv : local;
+  if(d){state.comments=d.comments||{};state.email=d.email||state.email;state.otherComment=d.otherComment||'';}
+  if(useSrv && srv.status==='submitted')toast('โหลดความเห็นที่เคยส่งไว้');
   renderForm();show('step2');
 }
 function show(step){
@@ -420,7 +424,7 @@ function updateProgress(){
   $('#footSummary').innerHTML=`ให้ความเห็นแล้ว <b>${done}</b> / ${total} หัวข้อ/มาตรการ`;
 }
 
-function persist(){localStorage.setItem(lsKey(state.agencyId),JSON.stringify({email:state.email,comments:state.comments,otherComment:state.otherComment}));$('#saveInd').innerHTML='<b>บันทึกร่างแล้ว</b>';}
+function persist(){localStorage.setItem(lsKey(state.agencyId),JSON.stringify({email:state.email,comments:state.comments,otherComment:state.otherComment,savedAt:new Date().toISOString()}));$('#saveInd').innerHTML='<b>บันทึกร่างแล้ว</b>';}
 function bindFooter(){
   $('#changeBtn').onclick=()=>show('step1');
   $('#saveBtn').onclick=()=>send('/api/draft','บันทึกร่างขึ้นระบบแล้ว');
