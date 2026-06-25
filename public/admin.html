@@ -93,7 +93,7 @@
     </select>
     <select id="fKind" onchange="render()">
       <option value="">ทุกประเภท</option>
-      <option value="central">ส่วนกลาง</option><option value="province">จังหวัด</option>
+      <option value="central">ส่วนกลาง</option><option value="province">จังหวัด</option><option value="expert">ผู้ทรงคุณวุฒิ</option>
     </select>
     <select id="fStatus" onchange="render()">
       <option value="">ทุกสถานะ</option>
@@ -159,7 +159,7 @@ function matchStance(r,st){if(!st)return true;return commentsOf(r).some(([,c])=>
 function render(){
   const q=$('#q').value.trim(), st=$('#fStance').value, kind=$('#fKind').value, status=$('#fStatus').value;
   let rows=RESP.filter(r=>(!kind||r.kind===kind)&&(!status||r.status===status)&&matchStance(r,st));
-  if(q){const qq=q.toLowerCase();rows=rows.filter(r=>(r.agencyName+r.province+r.submitter+JSON.stringify(r.comments)).toLowerCase().includes(qq));}
+  if(q){const qq=q.toLowerCase();rows=rows.filter(r=>(r.agencyName+r.province+(r.email||'')+JSON.stringify(r.comments)).toLowerCase().includes(qq));}
   if(TAB==='byAgency')viewAgency(rows,st);
   else if(TAB==='byMeasure')viewMeasure(rows,st);
   else if(TAB==='agencies')viewAgencies();
@@ -213,11 +213,11 @@ function stancePills(r){
 
 function viewAgency(rows,st){
   if(!rows.length)return $('#view').innerHTML='<div class="card"><div class="empty">ยังไม่มีข้อมูล</div></div>';
-  let h='<div class="card"><table><thead><tr><th>หน่วยงาน</th><th>ประเภท</th><th>ผู้กรอก</th><th>ความเห็น</th><th>สถานะ</th><th>ส่งเมื่อ</th></tr></thead><tbody>';
+  let h='<div class="card"><table><thead><tr><th>หน่วยงาน</th><th>ประเภท</th><th>อีเมล</th><th>ความเห็น</th><th>สถานะ</th><th>ส่งเมื่อ</th></tr></thead><tbody>';
   rows.forEach((r,i)=>{
-    const typ=r.kind==='province'?`จังหวัด${r.province} · ${r.unitType}`:'ส่วนกลาง'+((r.committees||[]).length?' · '+r.committees.join(','):'');
+    const typ=r.kind==='province'?`จังหวัด${r.province} · ${r.unitType}`:(r.kind==='expert'?'ผู้ทรงคุณวุฒิ':'ส่วนกลาง'+((r.committees||[]).length?' · '+r.committees.join(','):''));
     h+=`<tr class="resp" onclick="toggle(${i})"><td><b>${esc(r.agencyName)}</b></td><td class="mtext">${esc(typ)}</td>
-        <td>${esc(r.submitter||'')}${r.position?` <span class="mtext">(${esc(r.position)})</span>`:''}${(r.phone||r.email)?`<div class="mtext">${esc([r.phone,r.email].filter(Boolean).join(' · '))}</div>`:''}</td>
+        <td class="mtext">${esc(r.email||'')}</td>
         <td>${stancePills(r)}</td>
         <td><span class="badge ${r.status==='submitted'?'b-sub':'b-draft'}">${r.status==='submitted'?'ส่งแล้ว':'ร่าง'}</span></td>
         <td class="mtext">${fmt(r.submittedAt)}</td></tr>

@@ -152,9 +152,10 @@
       <span class="label">ท่านสังกัดหน่วยงานใด</span>
       <div class="two">
         <div><select id="kindSel">
-          <option value="">— เลือกประเภทหน่วยงาน —</option>
+          <option value="">— เลือกประเภทผู้ให้ความเห็น —</option>
           <option value="central">หน่วยงานส่วนกลาง (คณะอนุกรรมการ 8 คณะ)</option>
           <option value="province">หน่วยงานระดับจังหวัด</option>
+          <option value="expert">ผู้ทรงคุณวุฒิ</option>
         </select></div>
         <div id="provWrap" class="hidden"><select id="provSel"><option value="">— เลือกจังหวัด —</option></select></div>
       </div>
@@ -170,13 +171,9 @@
         <span class="label">ชื่อหน่วยงาน</span>
         <input type="text" id="provName" placeholder="เช่น อบจ.… / ที่ทำการปกครองอำเภอ… / สถานีตำรวจภูธร… / สนง.ปภ.จังหวัด…" />
       </div>
-      <div class="two" style="margin-top:4px">
-        <div><span class="label">ชื่อผู้กรอกความเห็น</span><input type="text" id="submitter" placeholder="ชื่อ–สกุล" /></div>
-        <div><span class="label">ตำแหน่งผู้กรอกความเห็น</span><input type="text" id="position" placeholder="ตำแหน่ง/หน้าที่" /></div>
-      </div>
-      <div class="two">
-        <div><span class="label">เบอร์โทรศัพท์</span><input type="text" id="phone" placeholder="สำหรับติดต่อกลับ" /></div>
-        <div><span class="label">อีเมล <span style="color:var(--muted);font-weight:400">(ไม่บังคับ)</span></span><input type="text" id="email" placeholder="อีเมล" /></div>
+      <div style="margin-top:4px">
+        <span class="label">อีเมล <span style="color:#dc2626">*</span></span>
+        <input type="email" id="email" placeholder="อีเมลสำหรับติดต่อกลับ (จำเป็น)" />
       </div>
       <p class="hint">ระบบบันทึกร่างให้อัตโนมัติ — กรอกค้างไว้แล้วกลับมาทำต่อได้</p>
       <button class="btn primary block" id="startBtn" style="margin-top:16px" disabled>เริ่มให้ความคิดเห็น →</button>
@@ -226,7 +223,8 @@
 const $=s=>document.querySelector(s);
 const api=(u,o)=>fetch(u,o).then(r=>r.ok?r.json():r.json().then(e=>Promise.reject(e)));
 let PLAN=null,AG=null,AIDX=new Map(),NODES=[];
-let state={agencyId:'',meta:null,submitter:'',position:'',phone:'',email:'',comments:{},otherComment:''};
+let state={agencyId:'',meta:null,email:'',comments:{},otherComment:''};
+const validEmail=s=>/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test((s||'').trim());
 const STANCE=[['agree','เห็นด้วย'],['edit','ขอแก้ไข/เพิ่มเติม']];
 const lsKey=id=>'fr2570:'+id;
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
@@ -267,17 +265,14 @@ function bindStep1(){
   prov.onchange=()=>{$('#catWrap').classList.toggle('hidden',!prov.value);$('#provNameWrap').classList.toggle('hidden',!(prov.value&&cat.value));checkStart();};
   cat.onchange=()=>{$('#provNameWrap').classList.toggle('hidden',!(prov.value&&cat.value));checkStart();};
   central.onchange=prefillIdentity;
-  pname.oninput=$('#submitter').oninput=$('#position').oninput=$('#phone').oninput=checkStart;
+  pname.oninput=$('#email').oninput=()=>{if($('#kindSel').value==='expert')prefillIdentity();else checkStart();};
   $('#startBtn').onclick=start;
 }
-// when an agency is re-selected, restore saved identity (so a returning user need not retype)
+// when identity (agency/email) changes, restore saved draft so a returning user need not retype
 function prefillIdentity(){
   const id=selectedId();
   const d=id?JSON.parse(localStorage.getItem(lsKey(id))||'null'):null;
   if(d){
-    if(d.submitter)$('#submitter').value=d.submitter;
-    if(d.position)$('#position').value=d.position;
-    if(d.phone)$('#phone').value=d.phone;
     if(d.email)$('#email').value=d.email;
     const n=Object.values(d.comments||{}).filter(c=>c&&(c.stance||(c.text||'').trim())).length;
     if(n)toast(`พบร่างที่บันทึกไว้ — ให้ความเห็นค้างไว้ ${n} ข้อ`);
@@ -285,21 +280,26 @@ function prefillIdentity(){
   checkStart();
 }
 function selectedId(){
-  if($('#kindSel').value==='central')return $('#centralSel').value;
+  const k=$('#kindSel').value, em=$('#email').value.trim();
+  if(k==='central')return $('#centralSel').value;
+  if(k==='expert')return validEmail(em)?('e:'+em.toLowerCase()):'';
   const p=$('#provSel').value,c=$('#catSel').value,n=$('#provName').value.trim();
   return (p&&c&&n)?`p:${p}:${c}:${n}`:'';
 }
-function checkStart(){$('#startBtn').disabled=!(selectedId()&&$('#submitter').value.trim()&&$('#position').value.trim()&&$('#phone').value.trim());}
+function checkStart(){$('#startBtn').disabled=!(selectedId()&&validEmail($('#email').value));}
 
 async function start(){
   const id=selectedId();
+  const kind=$('#kindSel').value;
   let meta=AIDX.get(id);
-  if(!meta && $('#kindSel').value==='province')
+  if(!meta && kind==='province')
     meta={name:$('#provName').value.trim(),kind:'province',province:$('#provSel').value,unitType:$('#catSel').value,committees:[]};
-  state={agencyId:id,meta,submitter:$('#submitter').value.trim(),position:$('#position').value.trim(),phone:$('#phone').value.trim(),email:$('#email').value.trim(),comments:{},otherComment:''};
+  if(!meta && kind==='expert')
+    meta={name:'ผู้ทรงคุณวุฒิ',kind:'expert',province:'',unitType:'',committees:[]};
+  state={agencyId:id,meta,email:$('#email').value.trim(),comments:{},otherComment:''};
   const local=JSON.parse(localStorage.getItem(lsKey(id))||'null');
-  if(local){state.submitter=local.submitter||state.submitter;state.position=local.position||state.position;state.phone=local.phone||state.phone;state.email=local.email||state.email;state.comments=local.comments||{};state.otherComment=local.otherComment||'';}
-  else{try{const srv=await api('/api/response/'+id);if(srv){state.comments=srv.comments||{};state.submitter=srv.submitter||state.submitter;state.position=srv.position||state.position;state.phone=srv.phone||state.phone;state.email=srv.email||state.email;state.otherComment=srv.otherComment||'';if(srv.status==='submitted')toast('โหลดความเห็นที่เคยส่งไว้');}}catch(e){}}
+  if(local){state.email=local.email||state.email;state.comments=local.comments||{};state.otherComment=local.otherComment||'';}
+  else{try{const srv=await api('/api/response/'+id);if(srv){state.comments=srv.comments||{};state.email=srv.email||state.email;state.otherComment=srv.otherComment||'';if(srv.status==='submitted')toast('โหลดความเห็นที่เคยส่งไว้');}}catch(e){}}
   renderForm();show('step2');
 }
 function show(step){
@@ -333,7 +333,7 @@ function commentBox(id,onChange){
 function renderForm(){
   const m=state.meta;
   $('#formAgency').textContent=m.name;
-  $('#formNote').textContent=m.kind==='province'?`จังหวัด${m.province} · ${m.unitType}`:'หน่วยงานส่วนกลาง'+((m.committees||[]).length?` · อยู่ใน ${m.committees.join(', ')}`:'');
+  $('#formNote').textContent=m.kind==='province'?`จังหวัด${m.province} · ${m.unitType}`:(m.kind==='expert'?`ผู้ทรงคุณวุฒิ · ${state.email}`:'หน่วยงานส่วนกลาง'+((m.committees||[]).length?` · อยู่ใน ${m.committees.join(', ')}`:''));
   const root=$('#secs');root.innerHTML='';
   (PLAN.sections||[]).forEach(s=>root.appendChild(renderSection(s)));
   const oc=$('#otherComment');oc.value=state.otherComment||'';oc.oninput=()=>{state.otherComment=oc.value;persist();};
@@ -417,7 +417,7 @@ function updateProgress(){
   $('#footSummary').innerHTML=`ให้ความเห็นแล้ว <b>${done}</b> / ${total} หัวข้อ/มาตรการ`;
 }
 
-function persist(){localStorage.setItem(lsKey(state.agencyId),JSON.stringify({submitter:state.submitter,position:state.position,phone:state.phone,email:state.email,comments:state.comments,otherComment:state.otherComment}));$('#saveInd').innerHTML='<b>บันทึกร่างแล้ว</b>';}
+function persist(){localStorage.setItem(lsKey(state.agencyId),JSON.stringify({email:state.email,comments:state.comments,otherComment:state.otherComment}));$('#saveInd').innerHTML='<b>บันทึกร่างแล้ว</b>';}
 function bindFooter(){
   $('#changeBtn').onclick=()=>show('step1');
   $('#saveBtn').onclick=()=>send('/api/draft','บันทึกร่างขึ้นระบบแล้ว');
@@ -425,7 +425,7 @@ function bindFooter(){
   $('#editAgainBtn').onclick=()=>show('step2');
   $('#newBtn').onclick=()=>location.reload();
 }
-const payload=()=>({agencyId:state.agencyId,kind:state.meta.kind,province:state.meta.province||'',category:state.meta.unitType||'',agencyName:state.meta.name,submitter:state.submitter,position:state.position,phone:state.phone,email:state.email,comments:state.comments,otherComment:state.otherComment});
+const payload=()=>({agencyId:state.agencyId,kind:state.meta.kind,province:state.meta.province||'',category:state.meta.unitType||'',agencyName:state.meta.name,email:state.email,comments:state.comments,otherComment:state.otherComment});
 async function send(url,msg){try{await api(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload())});toast(msg);return true;}catch(e){toast('เกิดข้อผิดพลาด: '+(e.error||''));return false;}}
 async function submit(){
   const done=doneCount(NODES);

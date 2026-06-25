@@ -82,6 +82,7 @@ async function saveResponse(req, res, status) {
 
   const agencies = await readJSON(AGENCIES_FILE, {});
   const idx = buildAgencyIndex(agencies);
+  const email = (body.email || '').trim();
   let meta = idx.get(agencyId);
   if (!meta) {
     // province agency: free-text (province + category + typed name)
@@ -90,6 +91,9 @@ async function saveResponse(req, res, status) {
     const name = (body.agencyName || '').trim();
     if (body.kind === 'province' && province && category && name) {
       meta = { id: agencyId, name, kind: 'province', committees: [], province, unitType: category };
+    } else if (body.kind === 'expert' && email) {
+      // ผู้ทรงคุณวุฒิ: ระบุตัวด้วยอีเมล (agencyId = e:<email>)
+      meta = { id: agencyId, name: 'ผู้ทรงคุณวุฒิ', kind: 'expert', committees: [], province: '', unitType: '' };
     } else {
       return res.status(400).json({ error: 'unknown agencyId' });
     }
@@ -106,10 +110,7 @@ async function saveResponse(req, res, status) {
     province: meta.province,
     unitType: meta.unitType,
     committees: meta.committees,
-    submitter: (body.submitter || '').trim(),
-    position: (body.position || '').trim(),
-    phone: (body.phone || '').trim(),
-    email: (body.email || '').trim(),
+    email,
     comments: body.comments || {},          // { "8.1.1": {stance,text,files:[]} }
     otherComment: (body.otherComment || '').trim(),
     status,
@@ -176,7 +177,7 @@ function csvEscape(v) {
 // build long-format rows (one row per commented measure) as arrays of cells
 function buildExportRows(plan, all) {
   const mIndex = flattenPlan(plan); // nodeId -> {dim, text}
-  const rows = [['หน่วยงาน', 'ประเภท', 'จังหวัด', 'อนุกรรมการ', 'ผู้กรอก', 'ตำแหน่ง', 'เบอร์โทร', 'อีเมล',
+  const rows = [['หน่วยงาน', 'ประเภท', 'จังหวัด', 'อนุกรรมการ', 'อีเมล',
     'หัวข้อ/ด้าน', 'ข้อ', 'เนื้อหา', 'ความเห็น', 'ข้อเสนอแก้ไข/เพิ่มเติม', 'ความเห็นอื่น ๆ (ภาพรวม)', 'สถานะ', 'เวลาส่ง']];
   const typeOf = r => r.kind === 'province' ? `จังหวัด-${r.unitType}` : 'ส่วนกลาง';
   const statusOf = r => r.status === 'submitted' ? 'ส่งแล้ว' : 'ร่าง';
@@ -186,7 +187,7 @@ function buildExportRows(plan, all) {
     // หน่วยที่ส่ง/ร่างแต่ไม่มีคอมเมนต์รายข้อ -> ลงไว้ 1 แถว เพื่อให้เห็นว่าหน่วยนี้ตอบแล้ว
     if (noted.length === 0) {
       rows.push([r.agencyName, typeOf(r), r.province || '', (r.committees || []).join(' '),
-        r.submitter || '', r.position || '', r.phone || '', r.email || '',
+        r.email || '',
         '', '', '', r.status === 'submitted' ? 'เห็นชอบทั้งฉบับ' : '', '',
         r.otherComment || '', statusOf(r), r.submittedAt || '']);
       continue;
@@ -194,7 +195,7 @@ function buildExportRows(plan, all) {
     for (const [no, c] of noted) {
       const m = mIndex[no] || { dim: '', text: '' };
       rows.push([r.agencyName, typeOf(r), r.province || '', (r.committees || []).join(' '),
-        r.submitter || '', r.position || '', r.phone || '', r.email || '',
+        r.email || '',
         m.dim, no, m.text, STANCE_TH[c.stance] || (c.stance || ''), c.text || '',
         r.otherComment || '', statusOf(r), r.submittedAt || '']);
     }
