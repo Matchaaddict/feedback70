@@ -222,15 +222,16 @@ function stancePills(r){
 
 function viewAgency(rows,st){
   if(!rows.length)return $('#view').innerHTML='<div class="card"><div class="empty">ยังไม่มีข้อมูล</div></div>';
-  let h='<div class="card"><table><thead><tr><th>หน่วยงาน</th><th>ประเภท</th><th>อีเมล</th><th>ความเห็น</th><th>สถานะ</th><th>ส่งเมื่อ</th></tr></thead><tbody>';
+  let h='<div class="card"><table><thead><tr><th>หน่วยงาน</th><th>ประเภท</th><th>อีเมล</th><th>ความเห็น</th><th>สถานะ</th><th>ส่งเมื่อ</th><th></th></tr></thead><tbody>';
   rows.forEach((r,i)=>{
     const typ=r.kind==='province'?`จังหวัด${r.province} · ${r.unitType}`:(r.kind==='expert'?'ผู้ทรงคุณวุฒิ':'ส่วนกลาง'+((r.committees||[]).length?' · '+r.committees.join(','):''));
     h+=`<tr class="resp" onclick="toggle(${i})"><td><b>${esc(r.agencyName)}</b></td><td class="mtext">${esc(typ)}</td>
         <td class="mtext">${esc(r.email||'')}</td>
         <td>${stancePills(r)}</td>
         <td><span class="badge ${r.status==='submitted'?'b-sub':'b-draft'}">${r.status==='submitted'?'ส่งแล้ว':'ร่าง'}</span></td>
-        <td class="mtext">${fmt(r.submittedAt)}</td></tr>
-        <tr class="detail hidden" id="d${i}"><td colspan="6"></td></tr>`;
+        <td class="mtext">${fmt(r.submittedAt)}</td>
+        <td style="text-align:right;white-space:nowrap"><button class="btn ghost" style="color:#dc2626;padding:6px 10px" onclick="event.stopPropagation();delResp('${escA(r.agencyId)}')">ลบ</button></td></tr>
+        <tr class="detail hidden" id="d${i}"><td colspan="7"></td></tr>`;
   });
   h+='</tbody></table></div>';
   $('#view').innerHTML=h;
@@ -300,6 +301,27 @@ function viewMissing(){
   h+=(missP.length?missP.map(m=>`<tr><td>${esc(m.province)} · <span class="mtext">${esc(m.cat)}</span></td></tr>`).join(''):'<tr><td class="mtext">มีหน่วยงานส่งครบทุกจังหวัด×ประเภทแล้ว</td></tr>');
   h+='</tbody></table></div>';
   $('#view').innerHTML=h;
+}
+
+async function delResp(agencyId){
+  const r=RESP.find(x=>x.agencyId===agencyId);
+  if(!confirm('ลบความเห็นของ “'+(r?r.agencyName:agencyId)+'” ?\nลบแล้วกู้คืนไม่ได้'))return;
+  try{
+    await asend('DELETE','/api/admin/response/'+encodeURIComponent(agencyId));
+    RESP=RESP.filter(x=>x.agencyId!==agencyId);
+    renderStats(); render();
+    toast('ลบความเห็นแล้ว');
+  }catch(e){toast('ผิดพลาด: '+e);}
+}
+
+let _toastT;
+function toast(msg){
+  let el=$('#toast');
+  if(!el){el=document.createElement('div');el.id='toast';
+    el.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:11px 18px;border-radius:11px;font-weight:600;box-shadow:var(--shadow);z-index:99;opacity:0;transition:opacity .2s';
+    document.body.appendChild(el);}
+  el.textContent=msg; el.style.opacity='1';
+  clearTimeout(_toastT); _toastT=setTimeout(()=>el.style.opacity='0',2200);
 }
 
 function fmt(iso){if(!iso)return'';const d=new Date(iso);return d.toLocaleString('th-TH',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}

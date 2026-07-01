@@ -124,6 +124,15 @@ app.get('/api/admin/responses', requireAdmin, async (_req, res) => {
   res.json(Object.values(all));
 });
 
+// delete a single agency's response (e.g. test entries)
+app.delete('/api/admin/response/:agencyId', requireAdmin, async (req, res) => {
+  const all = await readJSON(RESPONSES_FILE, {});
+  if (!all[req.params.agencyId]) return res.status(404).json({ error: 'not found' });
+  delete all[req.params.agencyId];
+  await writeJSON(RESPONSES_FILE, all);
+  res.json({ ok: true });
+});
+
 app.get('/api/admin/stats', requireAdmin, async (_req, res) => {
   const agencies = await readJSON(AGENCIES_FILE, {});
   const all = Object.values(await readJSON(RESPONSES_FILE, {}));
@@ -144,22 +153,22 @@ app.get('/api/admin/stats', requireAdmin, async (_req, res) => {
 
 const STANCE_TH = { agree: 'เห็นด้วย', edit: 'ขอแก้ไข/เพิ่มเติม', add: 'ขอแก้ไข/เพิ่มเติม' };
 
-// flatten plan.json -> { nodeId: {dim, text} } for every commentable node
+// flatten plan.json -> ordered [{no, dim, text}] for every commentable node
 function flattenPlan(plan) {
-  const idx = {};
+  const list = [];
   for (const s of plan.sections || []) {
     if (s.commentLevel === 'item') {
       for (const g of s.groups || [])
         for (const it of g.items || [])
-          idx[it.no] = { dim: `${s.title} / ${g.title}`, text: it.text };
+          list.push({ no: it.no, dim: `${s.title} / ${g.title}`, text: it.text });
     } else if (s.commentLevel === 'group') {
       for (const g of s.groups || [])
-        idx[g.no] = { dim: s.title, text: g.title };
+        list.push({ no: g.no, dim: s.title, text: g.title });
     } else {
-      idx[s.no] = { dim: s.title, text: s.title };
+      list.push({ no: s.no, dim: s.title, text: s.title });
     }
   }
-  return idx;
+  return list;
 }
 
 function csvEscape(v) {
@@ -167,31 +176,30 @@ function csvEscape(v) {
   return `"${s}"`;
 }
 
-// build long-format rows (one row per commented measure) as arrays of cells
+// เนื้อความในเซลล์ของแต่ละข้อ: เห็นด้วย / ขอแก้ไข: <ข้อเสนอ>
+function cellFor(c) {
+  if (!c) return '';
+  const st = c.stance ? (STANCE_TH[c.stance] || c.stance) : '';
+  const txt = (c.text || '').trim();
+  if (st && txt) return `${st}: ${txt}`;
+  return st || txt || '';
+}
+
+// build wide-format rows: 1 row per agency, 1 column per commentable measure
 function buildExportRows(plan, all) {
-  const mIndex = flattenPlan(plan); // nodeId -> {dim, text}
-  const rows = [['หน่วยงาน', 'ประเภท', 'จังหวัด', 'อนุกรรมการ', 'อีเมล',
-    'หัวข้อ/ด้าน', 'ข้อ', 'เนื้อหา', 'ความเห็น', 'ข้อเสนอแก้ไข/เพิ่มเติม', 'ความเห็นอื่น ๆ (ภาพรวม)', 'สถานะ', 'เวลาส่ง']];
+  const nodes = flattenPlan(plan); // ordered [{no, dim, text}]
+  const header = ['หน่วยงาน', 'ประเภท', 'จังหวัด', 'อนุกรรมการ', 'อีเมล',
+    'สถานะ', 'เวลาส่ง', 'ความเห็นอื่น ๆ (ภาพรวม)',
+    ...nodes.map(n => `${n.no} ${n.text}`)];
+  const rows = [header];
   const typeOf = r => r.kind === 'province' ? `จังหวัด-${r.unitType}` : 'ส่วนกลาง';
   const statusOf = r => r.status === 'submitted' ? 'ส่งแล้ว' : 'ร่าง';
   for (const r of all) {
     const comments = r.comments || {};
-    const noted = Object.entries(comments).filter(([, c]) => c && (c.stance || (c.text || '').trim()));
-    // หน่วยที่ส่ง/ร่างแต่ไม่มีคอมเมนต์รายข้อ -> ลงไว้ 1 แถว เพื่อให้เห็นว่าหน่วยนี้ตอบแล้ว
-    if (noted.length === 0) {
-      rows.push([r.agencyName, typeOf(r), r.province || '', (r.committees || []).join(' '),
-        r.email || '',
-        '', '', '', r.status === 'submitted' ? 'เห็นชอบทั้งฉบับ' : '', '',
-        r.otherComment || '', statusOf(r), r.submittedAt || '']);
-      continue;
-    }
-    for (const [no, c] of noted) {
-      const m = mIndex[no] || { dim: '', text: '' };
-      rows.push([r.agencyName, typeOf(r), r.province || '', (r.committees || []).join(' '),
-        r.email || '',
-        m.dim, no, m.text, STANCE_TH[c.stance] || (c.stance || ''), c.text || '',
-        r.otherComment || '', statusOf(r), r.submittedAt || '']);
-    }
+    const row = [r.agencyName, typeOf(r), r.province || '', (r.committees || []).join(' '),
+      r.email || '', statusOf(r), r.submittedAt || '', r.otherComment || ''];
+    for (const n of nodes) row.push(cellFor(comments[n.no]));
+    rows.push(row);
   }
   return rows;
 }
