@@ -119,6 +119,13 @@
   .footer-in{max-width:900px;margin:0 auto;display:flex;gap:12px;align-items:center;width:100%}
   .footer .summary{font-size:13px;color:var(--muted);flex:1;min-width:0}
   .footer .summary b{color:var(--ink)}
+  /* incomplete-submit warning */
+  .missbar{max-width:900px;margin:0 auto 10px;display:flex;align-items:center;gap:12px;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:12px;padding:10px 14px;font-size:13.5px;font-weight:600}
+  .missbar b{font-weight:700}
+  .missbar .missgo{margin-left:auto;background:#dc2626;color:#fff;border:0;border-radius:9px;padding:8px 14px;font:inherit;font-weight:700;cursor:pointer;white-space:nowrap}
+  .missbar .missgo:hover{background:#b91c1c}
+  .cbox.miss{outline:2px solid #ef4444;outline-offset:6px;border-radius:10px;background:#fef2f2}
+  .item.miss-row{background:#fef2f2}
 
   .done{text-align:center;padding:40px 20px}
   .done .ic{width:74px;height:74px;border-radius:50%;background:var(--agree-bg);color:var(--agree);display:grid;place-items:center;margin:0 auto 16px;font-size:38px}
@@ -214,7 +221,9 @@
   </section>
 </div>
 
-<div class="footer hidden" id="footer"><div class="footer-in">
+<div class="footer hidden" id="footer">
+  <div class="missbar hidden" id="missBar">⚠ ยังตอบไม่ครบ ขาดอีก <b data-n>0</b> ข้อ (ไฮไลต์สีแดงไว้ให้แล้ว) <button class="missgo" id="missGo">ไปข้อที่ยังไม่ตอบ →</button></div>
+  <div class="footer-in">
   <div class="summary" id="footSummary"></div>
   <button class="btn ghost" id="saveBtn">บันทึกร่าง</button>
   <button class="btn primary" id="submitBtn">ส่งความคิดเห็น</button>
@@ -322,7 +331,7 @@ const touched=c=>c&&(c.stance||(c.text||'').trim());
 // ---- a reusable comment control bound to id ----
 function commentBox(id,onChange){
   const c=getC(id);
-  const box=document.createElement('div');box.className='cbox';
+  const box=document.createElement('div');box.className='cbox';box.dataset.node=id;
   box.innerHTML=`<div class="stances">${STANCE.map(([v,l])=>`<button class="stance" data-v="${v}"><span class="dot"></span>${l}</button>`).join('')}</div>
     <div class="reveal hidden"><textarea placeholder="โปรดระบุข้อเสนอ / ประเด็นที่ขอแก้ไขหรือเพิ่มเติม"></textarea></div>`;
   const reveal=box.querySelector('.reveal'),ta=box.querySelector('textarea');
@@ -422,6 +431,34 @@ function updateProgress(){
   const done=doneCount(NODES),total=NODES.length;
   $('#topProg').style.width=(total?done/total*100:0)+'%';
   $('#footSummary').innerHTML=`ให้ความเห็นแล้ว <b>${done}</b> / ${total} หัวข้อ/มาตรการ`;
+  applyMissing();
+}
+
+// ---- incomplete-submit guidance ----
+let warned=false;                                    // เริ่มไฮไลต์ข้อที่ขาดหลังผู้ใช้กดส่งครั้งแรก
+const currentMissing=()=>NODES.filter(id=>!touched(state.comments[id]));
+// ไฮไลต์ข้อที่ยังไม่ตอบ + อัปเดตแถบเตือน (ทำงานเฉพาะหลังกดส่งแล้วครั้งหนึ่ง)
+function applyMissing(){
+  document.querySelectorAll('.cbox.miss').forEach(b=>b.classList.remove('miss'));
+  document.querySelectorAll('.item.miss-row').forEach(b=>b.classList.remove('miss-row'));
+  const bar=$('#missBar');
+  if(!warned){if(bar)bar.classList.add('hidden');return;}
+  const miss=currentMissing();
+  miss.forEach(id=>{
+    const b=document.querySelector(`.cbox[data-node="${id}"]`);
+    if(b){b.classList.add('miss');const row=b.closest('.item');if(row)row.classList.add('miss-row');}
+  });
+  if(!bar)return;
+  if(miss.length){bar.classList.remove('hidden');bar.querySelector('[data-n]').textContent=miss.length;}
+  else bar.classList.add('hidden');
+}
+// เปิด section/dimension ที่ยุบอยู่ แล้วเลื่อนไปหา node ที่ระบุ
+function jumpTo(id){
+  const b=document.querySelector(`.cbox[data-node="${id}"]`);
+  if(!b)return;
+  const sec=b.closest('.sec');if(sec)sec.classList.remove('collapsed');
+  const dim=b.closest('.dim');if(dim)dim.classList.remove('collapsed');
+  b.scrollIntoView({behavior:'smooth',block:'center'});
 }
 
 function persist(){localStorage.setItem(lsKey(state.agencyId),JSON.stringify({email:state.email,comments:state.comments,otherComment:state.otherComment,savedAt:new Date().toISOString()}));$('#saveInd').innerHTML='<b>บันทึกร่างแล้ว</b>';}
@@ -429,16 +466,24 @@ function bindFooter(){
   $('#changeBtn').onclick=()=>show('step1');
   $('#saveBtn').onclick=()=>send('/api/draft','บันทึกร่างขึ้นระบบแล้ว');
   $('#submitBtn').onclick=submit;
+  $('#missGo').onclick=()=>{const m=currentMissing();if(m.length)jumpTo(m[0]);};
   $('#editAgainBtn').onclick=()=>show('step2');
   $('#newBtn').onclick=()=>location.reload();
 }
 const payload=()=>({agencyId:state.agencyId,kind:state.meta.kind,province:state.meta.province||'',category:state.meta.unitType||'',agencyName:state.meta.name,email:state.email,comments:state.comments,otherComment:state.otherComment});
 async function send(url,msg){try{await api(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload())});toast(msg);return true;}catch(e){toast('เกิดข้อผิดพลาด: '+(e.error||''));return false;}}
 async function submit(){
-  const done=doneCount(NODES);
-  if(done===0&&!confirm('ยังไม่ได้ให้ความเห็นในหัวข้อใดเลย ต้องการส่งแบบ “เห็นชอบทั้งฉบับ” หรือไม่?'))return;
+  warned=true;
+  const miss=currentMissing();
+  applyMissing();                                    // ไฮไลต์ + แสดงแถบเตือน
+  if(miss.length){
+    jumpTo(miss[0]);                                 // พาไปข้อแรกที่ยังไม่ตอบ
+    toast(`ยังตอบไม่ครบ ขาดอีก ${miss.length} ข้อ — โปรดให้ความเห็นให้ครบก่อนส่ง`);
+    return;
+  }
+  const done=NODES.length;
   $('#submitBtn').disabled=true;
-  if(await send('/api/submit','ส่งความคิดเห็นเรียบร้อย')){$('#doneMsg').textContent=`ในนาม ${state.meta.name} · ให้ความเห็น ${done} หัวข้อ — ขอบคุณสำหรับการมีส่วนร่วม`;show('step3');}
+  if(await send('/api/submit','ส่งความคิดเห็นเรียบร้อย')){$('#doneMsg').textContent=`ในนาม ${state.meta.name} · ให้ความเห็นครบ ${done} หัวข้อ — ขอบคุณสำหรับการมีส่วนร่วม`;show('step3');}
   $('#submitBtn').disabled=false;
 }
 </script>

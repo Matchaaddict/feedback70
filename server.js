@@ -92,6 +92,18 @@ async function saveResponse(req, res, status) {
     }
   }
 
+  const comments = body.comments || {};
+
+  // การส่งจริง (submit) ต้องให้ความเห็นครบทุกข้อ — draft ไม่บังคับ
+  if (status === 'submitted') {
+    const plan = await readJSON(PLAN_FILE, {});
+    const isTouched = c => !!(c && (c.stance || (c.text || '').trim()));
+    const missing = flattenPlan(plan).filter(n => !isTouched(comments[n.no])).map(n => n.no);
+    if (missing.length) {
+      return res.status(400).json({ error: `ยังตอบไม่ครบ ขาดอีก ${missing.length} ข้อ`, missing });
+    }
+  }
+
   const all = await readJSON(RESPONSES_FILE, {});
   const prev = all[agencyId] || {};
   const now = new Date().toISOString();
@@ -104,7 +116,7 @@ async function saveResponse(req, res, status) {
     unitType: meta.unitType,
     committees: meta.committees,
     email,
-    comments: body.comments || {},          // { "8.1.1": {stance,text,files:[]} }
+    comments,                               // { "8.1.1": {stance,text,files:[]} }
     otherComment: (body.otherComment || '').trim(),
     status,
     createdAt: prev.createdAt || now,
