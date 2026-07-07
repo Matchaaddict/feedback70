@@ -275,7 +275,8 @@ function bindStep1(){
     $('#catWrap').classList.add('hidden');$('#provNameWrap').classList.add('hidden');
     central.value='';prov.value='';cat.value='';pname.value='';checkStart();};
   prov.onchange=()=>{$('#catWrap').classList.toggle('hidden',!prov.value);$('#provNameWrap').classList.toggle('hidden',!(prov.value&&cat.value));checkStart();};
-  cat.onchange=()=>{$('#provNameWrap').classList.toggle('hidden',!(prov.value&&cat.value));checkStart();};
+  cat.onchange=()=>{$('#provNameWrap').classList.toggle('hidden',!(prov.value&&cat.value));
+    pname.placeholder=cat.value==='อื่นๆ'?'โปรดระบุชื่อหน่วยงานของท่าน':'เช่น อบจ.… / ที่ทำการปกครองอำเภอ… / สถานีตำรวจภูธร… / สนง.ปภ.จังหวัด…';checkStart();};
   central.onchange=prefillIdentity;
   pname.oninput=$('#email').oninput=()=>{if($('#kindSel').value==='expert')prefillIdentity();else checkStart();};
   $('#startBtn').onclick=start;
