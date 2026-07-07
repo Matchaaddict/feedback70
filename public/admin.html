@@ -19,7 +19,7 @@
   .btn{border:0;border-radius:11px;padding:10px 16px;font:inherit;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:7px}
   .btn.primary{background:var(--brand);color:#fff}.btn.ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
   input,select{padding:9px 11px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff}
-  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
   .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
   .stat .n{font-size:26px;font-weight:700}.stat .l{font-size:13px;color:var(--muted);font-weight:600}
   .stat .bar{height:6px;border-radius:99px;background:var(--line);margin-top:10px;overflow:hidden}
@@ -38,6 +38,7 @@
   .b-sub{background:var(--agree-bg);color:var(--agree)}.b-draft{background:var(--edit-bg);color:var(--edit)}
   .pill{display:inline-block;padding:1px 8px;border-radius:7px;font-size:11.5px;font-weight:700;margin-right:3px}
   .p-agree{background:var(--agree-bg);color:var(--agree)}.p-edit{background:var(--edit-bg);color:var(--edit)}.p-add{background:var(--add-bg);color:var(--add)}
+  .p-other{background:#fae8ff;color:#a21caf}
   .detail{background:#f8fafc;padding:0 14px}
   .detail .c{padding:11px 0;border-bottom:1px dashed var(--line)}
   .detail .c:last-child{border-bottom:0}
@@ -152,11 +153,13 @@ function buildMidx(){
 async function renderStats(){
   const s=await aget('/api/admin/stats');
   const pct=s.centralTotal?Math.round(s.centralSubmitted/s.centralTotal*100):0;
+  const withOther=RESP.filter(r=>(r.otherComment||'').trim()).length;
   $('#stats').innerHTML=[
     ['ส่วนกลาง ส่งแล้ว',`${s.centralSubmitted}/${s.centralTotal}`,`<div class="bar"><div style="width:${pct}%"></div></div>`],
     ['จังหวัด ส่งแล้ว',s.provinceSubmitted,'หน่วยงาน (พิมพ์ชื่อเอง)'],
     ['ส่งแล้วรวม',s.submitted,''],
     ['ร่าง (ยังไม่ส่ง)',s.drafts,''],
+    ['มีความเห็นภาพรวม',withOther,'หน่วยที่เขียนความเห็นอื่น ๆ (ภาพรวม)'],
   ].map(([l,n,x])=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div>${x||''}</div>`).join('');
 }
 
@@ -168,7 +171,7 @@ function matchStance(r,st){if(!st)return true;return commentsOf(r).some(([,c])=>
 function render(){
   const q=$('#q').value.trim(), st=$('#fStance').value, kind=$('#fKind').value, status=$('#fStatus').value;
   let rows=RESP.filter(r=>(!kind||r.kind===kind)&&(!status||r.status===status)&&matchStance(r,st));
-  if(q){const qq=q.toLowerCase();rows=rows.filter(r=>(r.agencyName+r.province+(r.email||'')+JSON.stringify(r.comments)).toLowerCase().includes(qq));}
+  if(q){const qq=q.toLowerCase();rows=rows.filter(r=>(r.agencyName+r.province+(r.email||'')+JSON.stringify(r.comments)+(r.otherComment||'')).toLowerCase().includes(qq));}
   if(TAB==='byAgency')viewAgency(rows,st);
   else if(TAB==='byMeasure')viewMeasure(rows,st);
   else if(TAB==='agencies')viewAgencies();
@@ -219,6 +222,14 @@ function stancePills(r){
   const c={agree:0,edit:0,add:0};commentsOf(r).forEach(([,x])=>{if(x.stance)c[x.stance]++;});
   return Object.entries(c).filter(([,n])=>n).map(([k,n])=>`<span class="pill p-${k}">${STANCE_TH[k]} ${n}</span>`).join('')||'<span class="mtext">—</span>';
 }
+// คอลัมน์ "ความเห็น": ป้ายรายข้อ + ป้าย "ภาพรวม" เมื่อมีความเห็นอื่น ๆ (ภาพรวม) เพื่อไม่ให้หลุดสายตา
+function commentCell(r){
+  const c={agree:0,edit:0,add:0};commentsOf(r).forEach(([,x])=>{if(x.stance)c[x.stance]++;});
+  const pills=Object.entries(c).filter(([,n])=>n).map(([k,n])=>`<span class="pill p-${k}">${STANCE_TH[k]} ${n}</span>`);
+  const oc=(r.otherComment||'').trim();
+  if(oc)pills.push(`<span class="pill p-other" title="${escA(oc)}">💬 ภาพรวม</span>`);
+  return pills.join('')||'<span class="mtext">—</span>';
+}
 
 function viewAgency(rows,st){
   if(!rows.length)return $('#view').innerHTML='<div class="card"><div class="empty">ยังไม่มีข้อมูล</div></div>';
@@ -227,7 +238,7 @@ function viewAgency(rows,st){
     const typ=r.kind==='province'?`จังหวัด${r.province} · ${r.unitType}`:(r.kind==='expert'?'ผู้ทรงคุณวุฒิ':'ส่วนกลาง'+((r.committees||[]).length?' · '+r.committees.join(','):''));
     h+=`<tr class="resp" onclick="toggle(${i})"><td><b>${esc(r.agencyName)}</b></td><td class="mtext">${esc(typ)}</td>
         <td class="mtext">${esc(r.email||'')}</td>
-        <td>${stancePills(r)}</td>
+        <td>${commentCell(r)}</td>
         <td><span class="badge ${r.status==='submitted'?'b-sub':'b-draft'}">${r.status==='submitted'?'ส่งแล้ว':'ร่าง'}</span></td>
         <td class="mtext">${fmt(r.submittedAt)}</td>
         <td style="text-align:right;white-space:nowrap"><button class="btn ghost" style="color:#dc2626;padding:6px 10px" onclick="event.stopPropagation();delResp('${escA(r.agencyId)}')">ลบ</button></td></tr>
