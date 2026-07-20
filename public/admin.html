@@ -91,6 +91,7 @@
   <div class="tabs">
     <div class="tab on" data-tab="byAgency" onclick="setTab('byAgency')">รายหน่วยงาน</div>
     <div class="tab" data-tab="byMeasure" onclick="setTab('byMeasure')">รายหัวข้อ/มาตรการ</div>
+    <div class="tab" data-tab="byProvince" onclick="setTab('byProvince')">รายจังหวัด</div>
     <div class="tab" data-tab="missing" onclick="setTab('missing')">ยังไม่ตอบ</div>
     <div class="tab" data-tab="agencies" onclick="setTab('agencies')">จัดการหน่วยงาน</div>
   </div>
@@ -154,9 +155,13 @@ async function renderStats(){
   const s=await aget('/api/admin/stats');
   const pct=s.centralTotal?Math.round(s.centralSubmitted/s.centralTotal*100):0;
   const withOther=RESP.filter(r=>(r.otherComment||'').trim()).length;
+  const provSub=RESP.filter(r=>r.status==='submitted'&&r.kind==='province');
+  const provTotal=(AG.provinces||[]).length;
+  const provDistinct=new Set(provSub.map(r=>r.province)).size;
+  const provPct=provTotal?Math.round(provDistinct/provTotal*100):0;
   $('#stats').innerHTML=[
     ['ส่วนกลาง ส่งแล้ว',`${s.centralSubmitted}/${s.centralTotal}`,`<div class="bar"><div style="width:${pct}%"></div></div>`],
-    ['จังหวัด ส่งแล้ว',s.provinceSubmitted,'หน่วยงาน (พิมพ์ชื่อเอง)'],
+    ['จังหวัดที่ตอบ',`${provDistinct}/${provTotal}`,`<div class="l" style="margin-top:2px">รวม ${provSub.length} หน่วยงาน</div><div class="bar"><div style="width:${provPct}%"></div></div>`],
     ['ส่งแล้วรวม',s.submitted,''],
     ['ร่าง (ยังไม่ส่ง)',s.drafts,''],
     ['มีความเห็นภาพรวม',withOther,'หน่วยที่เขียนความเห็นอื่น ๆ (ภาพรวม)'],
@@ -174,6 +179,7 @@ function render(){
   if(q){const qq=q.toLowerCase();rows=rows.filter(r=>(r.agencyName+r.province+(r.email||'')+JSON.stringify(r.comments)+(r.otherComment||'')).toLowerCase().includes(qq));}
   if(TAB==='byAgency')viewAgency(rows,st);
   else if(TAB==='byMeasure')viewMeasure(rows,st);
+  else if(TAB==='byProvince')viewProvince();
   else if(TAB==='agencies')viewAgencies();
   else viewMissing();
 }
@@ -312,6 +318,55 @@ function viewMissing(){
   h+=(missP.length?missP.map(m=>`<tr><td>${esc(m.province)} · <span class="mtext">${esc(m.cat)}</span></td></tr>`).join(''):'<tr><td class="mtext">มีหน่วยงานส่งครบทุกจังหวัด×ประเภทแล้ว</td></tr>');
   h+='</tbody></table></div>';
   $('#view').innerHTML=h;
+}
+
+// รายจังหวัด: นับหน่วยที่ตอบต่อจังหวัด + ตรวจหน่วยซ้ำ (ชื่อซ้ำในจังหวัดเดียวกัน)
+const normName=s=>(s||'').trim().replace(/\s+/g,' ').toLowerCase();
+function viewProvince(){
+  const q=$('#q').value.trim().toLowerCase();
+  const subs=RESP.filter(r=>r.status==='submitted'&&r.kind==='province');
+  const byP={}; subs.forEach(r=>{(byP[r.province]=byP[r.province]||[]).push(r);});
+  const provAll=AG.provinces||[];
+  // จังหวัดที่มาไม่อยู่ในรายชื่อ (กันพลาด) นำมารวมท้าย
+  Object.keys(byP).forEach(p=>{if(!provAll.includes(p))provAll.push(p);});
+  const answered=Object.keys(byP).length;
+  const provTotal=(AG.provinces||[]).length;
+  let list=Object.keys(byP);
+  if(q)list=list.filter(p=>p.toLowerCase().includes(q)||byP[p].some(r=>(r.agencyName||'').toLowerCase().includes(q)));
+  list.sort((a,b)=>byP[b].length-byP[a].length||a.localeCompare(b,'th'));
+  window._pv=[];
+  let h=`<div class="card" style="padding:14px">
+    <b>จังหวัดที่ตอบแล้ว ${answered}/${provTotal}</b>
+    <span class="mtext"> · รวม ${subs.length} หน่วยงาน · เหลือ ${provTotal-answered} จังหวัดที่ยังไม่มีหน่วยงานใดตอบ</span></div>`;
+  h+=`<div class="card"><table><thead><tr><th>จังหวัด</th><th>หน่วยที่ตอบ</th><th>ประเภทที่ตอบ</th><th>หน่วยซ้ำ</th></tr></thead><tbody>`;
+  if(!list.length){
+    h+=`<tr><td colspan="4" class="mtext">${subs.length?'ไม่พบจังหวัดที่ตรงกับคำค้น':'ยังไม่มีจังหวัดใดตอบ'}</td></tr>`;
+  }
+  list.forEach(p=>{
+    const rs=byP[p];
+    const cnt={}; rs.forEach(r=>{const k=normName(r.agencyName); if(k)cnt[k]=(cnt[k]||0)+1;});
+    const dups=Object.entries(cnt).filter(([,n])=>n>1);
+    const types={}; rs.forEach(r=>{types[r.unitType]=(types[r.unitType]||0)+1;});
+    const typePills=Object.entries(types).map(([t,n])=>`<span class="pill p-add">${esc(t)} ${n}</span>`).join('');
+    const dupBadge=dups.length?`<span class="badge b-draft">⚠ ซ้ำ ${dups.reduce((a,[,n])=>a+n,0)} รายการ (${dups.length} ชื่อ)</span>`:'<span class="mtext">—</span>';
+    const i=window._pv.length; window._pv.push({rs,dups});
+    h+=`<tr class="resp" onclick="toggleP(${i})"><td><b>${esc(p)}</b></td><td>${rs.length} หน่วย</td><td>${typePills}</td><td>${dupBadge}</td></tr>
+        <tr class="detail hidden" id="pd${i}"><td colspan="4"></td></tr>`;
+  });
+  h+='</tbody></table></div>';
+  $('#view').innerHTML=h;
+}
+function toggleP(i){
+  const tr=$('#pd'+i); tr.classList.toggle('hidden');
+  if(tr.dataset.done)return;
+  const {rs,dups}=window._pv[i]; const td=tr.querySelector('td');
+  const dupSet=new Set(dups.map(([k])=>k));
+  const rows=rs.slice().sort((a,b)=>(a.unitType||'').localeCompare(b.unitType||'','th')||(a.agencyName||'').localeCompare(b.agencyName||'','th'));
+  td.innerHTML='<div class="detail" style="padding:6px 14px">'+rows.map(r=>{
+    const isDup=dupSet.has(normName(r.agencyName));
+    return `<div class="c"><span class="pill p-add">${esc(r.unitType||'')}</span> <b>${esc(r.agencyName)}</b>${isDup?' <span class="badge b-draft">ซ้ำ</span>':''} <span class="mtext"> · ${fmt(r.submittedAt)}</span></div>`;
+  }).join('')+'</div>';
+  tr.dataset.done=1;
 }
 
 async function delResp(agencyId){
