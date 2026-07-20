@@ -152,10 +152,17 @@ app.get('/api/admin/stats', requireAdmin, async (_req, res) => {
   const centralTotal = agencies.central?.length || 0;
   const provinceCount = (agencies.provinces || []).length;
   const categoryCount = (agencies.provinceCategories || []).length;
+  // provinces that have >=1 submitted response (distinct), plus per-province unit counts
+  const provSub = sub.filter(r => r.kind === 'province' && (r.province || '').trim());
+  const perProvince = {};
+  for (const r of provSub) perProvince[r.province] = (perProvince[r.province] || 0) + 1;
   res.json({
     centralTotal,
     centralSubmitted: sub.filter(r => r.kind === 'central').length,
-    provinceSubmitted: sub.filter(r => r.kind === 'province').length,
+    provinceSubmitted: provSub.length,            // จำนวน "หน่วย" ที่ส่ง (นับซ้ำจังหวัดได้)
+    provinceDistinct: Object.keys(perProvince).length, // จำนวน "จังหวัด" ที่ตอบแล้ว (ไม่ซ้ำ)
+    provinceTotal: provinceCount,                 // จำนวนจังหวัดทั้งหมด (76)
+    perProvince,                                  // { "เชียงใหม่": 4, ... } หน่วยต่อจังหวัด
     // province-category slots expected (one lead response per province per sector)
     provinceSlots: provinceCount * categoryCount,
     submitted: sub.length,

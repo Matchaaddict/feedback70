@@ -116,7 +116,7 @@
 
 <script>
 let TOKEN=localStorage.getItem('fr2570:tok')||'';
-let RESP=[], PLAN=null, AG=null, MIDX={}, TAB='byAgency';
+let RESP=[], PLAN=null, AG=null, MIDX={}, TAB='byAgency', STATS=null;
 const $=s=>document.querySelector(s);
 const STANCE_TH={agree:'เห็นด้วย',edit:'ขอแก้ไข/เพิ่มเติม',add:'ขอแก้ไข/เพิ่มเติม'};
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
@@ -151,12 +151,13 @@ function buildMidx(){
 }
 
 async function renderStats(){
-  const s=await aget('/api/admin/stats');
+  const s=await aget('/api/admin/stats');STATS=s;
   const pct=s.centralTotal?Math.round(s.centralSubmitted/s.centralTotal*100):0;
+  const ppct=s.provinceTotal?Math.round(s.provinceDistinct/s.provinceTotal*100):0;
   const withOther=RESP.filter(r=>(r.otherComment||'').trim()).length;
   $('#stats').innerHTML=[
     ['ส่วนกลาง ส่งแล้ว',`${s.centralSubmitted}/${s.centralTotal}`,`<div class="bar"><div style="width:${pct}%"></div></div>`],
-    ['จังหวัด ส่งแล้ว',s.provinceSubmitted,'หน่วยงาน (พิมพ์ชื่อเอง)'],
+    ['จังหวัดที่ตอบแล้ว',`${s.provinceDistinct}/${s.provinceTotal}`,`<div class="bar"><div style="width:${ppct}%"></div></div><div class="l" style="margin-top:6px">${s.provinceSubmitted} หน่วย (จังหวัดหนึ่งมีได้หลายหน่วย)</div>`],
     ['ส่งแล้วรวม',s.submitted,''],
     ['ร่าง (ยังไม่ส่ง)',s.drafts,''],
     ['มีความเห็นภาพรวม',withOther,'หน่วยที่เขียนความเห็นอื่น ๆ (ภาพรวม)'],
@@ -305,7 +306,18 @@ function viewMissing(){
   const haveSet=new Set(sub.filter(r=>r.kind==='province').map(r=>r.province+'|'+r.unitType));
   const missP=[];
   (AG.provinces||[]).forEach(p=>cats.forEach(c=>{if(!haveSet.has(p+'|'+c))missP.push({province:p,cat:c});}));
-  let h=`<div class="card"><table><thead><tr><th>หน่วยงานส่วนกลางที่ยังไม่ส่ง (${missC.length})</th><th>คณะอนุฯ</th></tr></thead><tbody>`;
+  // per-province: จำนวนหน่วยที่ส่งแล้ว รายจังหวัด (ตอบคำถาม "จังหวัดนี้ตอบมากี่หน่วย")
+  const perProv={};
+  sub.filter(r=>r.kind==='province'&&(r.province||'').trim())
+     .forEach(r=>{(perProv[r.province]=perProv[r.province]||{n:0,cats:{}}).n++;perProv[r.province].cats[r.unitType]=(perProv[r.province].cats[r.unitType]||0)+1;});
+  const answered=Object.keys(perProv).sort((a,b)=>perProv[b].n-perProv[a].n);
+  const totalProv=(AG.provinces||[]).length;
+  let h=`<div class="card"><table><thead><tr><th>จังหวัดที่ตอบแล้ว รายจังหวัด (${answered.length}/${totalProv})</th><th>จำนวนหน่วย</th><th>แยกตามประเภท</th></tr></thead><tbody>`;
+  h+=(answered.length?answered.map(p=>`<tr><td><b>${esc(p)}</b></td><td><b>${perProv[p].n}</b> หน่วย</td>
+      <td class="mtext">${Object.entries(perProv[p].cats).map(([c,n])=>esc(c)+' '+n).join(' · ')}</td></tr>`).join('')
+    :'<tr><td colspan="3" class="mtext">ยังไม่มีจังหวัดใดส่ง</td></tr>');
+  h+=`</tbody></table></div>
+    <div class="card"><table><thead><tr><th>หน่วยงานส่วนกลางที่ยังไม่ส่ง (${missC.length})</th><th>คณะอนุฯ</th></tr></thead><tbody>`;
   h+=(missC.length?missC.map(a=>`<tr><td>${esc(a.name)}</td><td class="mtext">${(a.committees||[]).join(' ')}</td></tr>`).join(''):'<tr><td colspan="2" class="mtext">ส่งครบทุกหน่วยแล้ว</td></tr>');
   h+=`</tbody></table></div>
     <div class="card"><table><thead><tr><th>จังหวัด × ประเภท ที่ยังไม่มีหน่วยงานส่ง (${missP.length})</th></tr></thead><tbody>`;
