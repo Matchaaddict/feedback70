@@ -5,6 +5,9 @@ node_modules/
 data/responses.json
 data/responses.*.json
 
+# บัญชีแอดมิน (username + password hash) — ห้ามขึ้น git
+data/admins.json
+
 # secrets / env
 .env
 .env.*

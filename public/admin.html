@@ -68,8 +68,17 @@
     <div class="brand-dot" style="margin:0 auto 14px">ศปถ</div>
     <h1 style="margin-bottom:6px">หน้าแอดมิน</h1>
     <p style="color:var(--muted);margin-top:0">ระบบแสดงความคิดเห็นเพื่อทบทวนแผนบูรณาการฯ ช่วงเทศกาล และช่วงวันหยุด พ.ศ. 2570</p>
-    <input id="tok" type="password" placeholder="Admin token" style="width:100%;margin:10px 0" />
-    <button class="btn primary" style="width:100%" onclick="login()">เข้าสู่ระบบ</button>
+    <div id="loginUP">
+      <input id="user" placeholder="ชื่อผู้ใช้" style="width:100%;margin:10px 0 6px" autocomplete="username" />
+      <input id="pass" type="password" placeholder="รหัสผ่าน" style="width:100%;margin:0 0 10px" autocomplete="current-password" />
+      <button class="btn primary" style="width:100%" onclick="login()">เข้าสู่ระบบ</button>
+      <p style="margin:10px 0 0"><a href="#" style="font-size:12.5px;color:var(--muted)" onclick="toggleLoginMode();return false">เข้าด้วย admin token (ผู้ดูแลหลัก) แทน</a></p>
+    </div>
+    <div id="loginTok" class="hidden">
+      <input id="tok" type="password" placeholder="Admin token" style="width:100%;margin:10px 0" />
+      <button class="btn primary" style="width:100%" onclick="loginToken()">เข้าสู่ระบบ</button>
+      <p style="margin:10px 0 0"><a href="#" style="font-size:12.5px;color:var(--muted)" onclick="toggleLoginMode();return false">เข้าด้วยชื่อผู้ใช้/รหัสผ่านแทน</a></p>
+    </div>
     <p id="loginErr" style="color:#dc2626;font-size:13px"></p>
   </div>
 </div>
@@ -94,6 +103,7 @@
     <div class="tab" data-tab="byProvince" onclick="setTab('byProvince')">รายจังหวัด</div>
     <div class="tab" data-tab="missing" onclick="setTab('missing')">ยังไม่ตอบ</div>
     <div class="tab" data-tab="agencies" onclick="setTab('agencies')">จัดการหน่วยงาน</div>
+    <div class="tab" data-tab="admins" onclick="setTab('admins')">จัดการแอดมิน</div>
   </div>
 
   <div class="toolbar">
@@ -127,7 +137,22 @@ async function asend(method,u,body){const r=await fetch(u,{method,headers:{'x-ad
 async function reloadAG(){AG=await fetch('/api/agencies').then(r=>r.json());buildMidx();}
 const escA=s=>esc(s).replace(/"/g,'&quot;');
 
+function toggleLoginMode(){
+  $('#loginUP').classList.toggle('hidden');
+  $('#loginTok').classList.toggle('hidden');
+  $('#loginErr').textContent='';
+}
 async function login(){
+  const username=$('#user').value.trim(), password=$('#pass').value;
+  if(!username||!password){$('#loginErr').textContent='กรอกชื่อผู้ใช้และรหัสผ่าน';return;}
+  try{
+    const r=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
+    const j=await r.json();
+    if(!r.ok)throw j.error||'เข้าสู่ระบบไม่สำเร็จ';
+    TOKEN=j.token; localStorage.setItem('fr2570:tok',TOKEN); boot();
+  }catch(e){ $('#loginErr').textContent=typeof e==='string'?e:'เข้าสู่ระบบไม่สำเร็จ'; }
+}
+async function loginToken(){
   TOKEN=$('#tok').value.trim();
   try{ await aget('/api/admin/stats'); localStorage.setItem('fr2570:tok',TOKEN); boot(); }
   catch(e){ $('#loginErr').textContent='token ไม่ถูกต้อง'; }
@@ -181,7 +206,44 @@ function render(){
   else if(TAB==='byMeasure')viewMeasure(rows,st);
   else if(TAB==='byProvince')viewProvince();
   else if(TAB==='agencies')viewAgencies();
+  else if(TAB==='admins')viewAdmins();
   else viewMissing();
+}
+
+async function viewAdmins(){
+  $('#view').innerHTML='<div class="card"><div class="empty">กำลังโหลด…</div></div>';
+  let users=[];
+  try{ users=await aget('/api/admin/users'); }catch(e){ $('#view').innerHTML='<div class="card"><div class="empty">โหลดรายชื่อแอดมินไม่สำเร็จ</div></div>'; return; }
+  let h=`<div class="card">
+    <div style="padding:12px 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--line)">
+      <input id="newAdminUser" placeholder="ชื่อผู้ใช้ใหม่…" style="flex:1;min-width:140px">
+      <input id="newAdminPass" placeholder="รหัสผ่าน (อย่างน้อย 8 ตัว)" style="flex:1;min-width:180px">
+      <button class="btn primary" onclick="addAdmin()">+ เพิ่มแอดมิน</button>
+    </div>
+    <table><thead><tr><th>ชื่อผู้ใช้ (${users.length})</th><th></th></tr></thead><tbody>`;
+  h+=users.length?users.map(u=>`<tr><td>${esc(u)}</td><td style="text-align:right;white-space:nowrap">
+      <button class="btn ghost" onclick="resetAdminPass('${escA(u)}')">ตั้งรหัสผ่านใหม่</button>
+      <button class="btn ghost" style="color:#dc2626" onclick="delAdmin('${escA(u)}')">ลบ</button></td></tr>`).join('')
+    :'<tr><td colspan="2" class="mtext">ยังไม่มีบัญชีแอดมิน</td></tr>';
+  h+='</tbody></table></div>';
+  $('#view').innerHTML=h;
+}
+async function addAdmin(){
+  const username=$('#newAdminUser').value.trim(), password=$('#newAdminPass').value;
+  if(!username||!password)return toast('กรอกชื่อผู้ใช้และรหัสผ่านก่อน');
+  try{ await asend('POST','/api/admin/users',{username,password}); toast('เพิ่มแอดมินแล้ว'); viewAdmins(); }
+  catch(e){ toast('ผิดพลาด: '+e); }
+}
+async function resetAdminPass(username){
+  const password=prompt('ตั้งรหัสผ่านใหม่สำหรับ "'+username+'" (อย่างน้อย 8 ตัว):');
+  if(!password)return;
+  try{ await asend('POST','/api/admin/users',{username,password}); toast('ตั้งรหัสผ่านใหม่แล้ว'); }
+  catch(e){ toast('ผิดพลาด: '+e); }
+}
+async function delAdmin(username){
+  if(!confirm('ลบบัญชีแอดมิน "'+username+'" ?'))return;
+  try{ await asend('DELETE','/api/admin/users/'+encodeURIComponent(username)); toast('ลบแล้ว'); viewAdmins(); }
+  catch(e){ toast('ผิดพลาด: '+e); }
 }
 
 function viewAgencies(){
